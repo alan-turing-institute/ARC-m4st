@@ -3,12 +3,12 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "Metrics for Speech Translation (M4ST)"
+name = "m4st"
 version = "0.1.0"
 authors = [
   { name = "Applied Research Centre", email = "arc@turing.ac.uk" },
 ]
-description = "Evaluation of metrics for Speech Translation"
+description = "Evaluation of Metrics for Speech Translation (M4ST)"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
