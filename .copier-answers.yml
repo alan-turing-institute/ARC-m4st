@@ -1,0 +1,14 @@
+# Changes here will be overwritten by Copier
+_commit: v0.2.0
+_src_path: gh:alan-turing-institute/python-project-template
+coc: their_coc
+email: arc@turing.ac.uk
+full_name: ARC (arc@turing.ac.uk)
+license: MIT
+min_python_version: '3.10'
+org: alan-turing-institute
+project_name: Metrics for Speech Translation (M4ST)
+project_short_description: Evaluation of metrics for Speech Translation
+python_name: m4st
+typing: loose
+url: https://github.com/alan-turing-institute/ARC-M4ST
