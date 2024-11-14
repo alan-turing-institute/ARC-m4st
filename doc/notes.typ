@@ -19,7 +19,7 @@ We want to study the behaviour of $cal(M)$ when the source text is "corrupted" b
 If this assumption is not true, then we might have to think harder about separating metric variance due to semantic change vs due to change in style.
 Either way, the translation will be influenced by the domain shift due to filler words, and we can sample metric evaluations $M$, as shown below.
 
-//In our case, they want to know which metric is the most robust against filler words. 
+//In our case, they want to know which metric is the most robust against filler words.
 //This is not an adversarial case, since filler words occur naturally.
 //We don't know the real world distribution of filler words, but we could use a LLM to sample from $bb(P)(hat(x) | x)$, where $x$ is the clean input, and $hat(x)$ is the filler-word-corrupted input.
 
