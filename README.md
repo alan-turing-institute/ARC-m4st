@@ -18,6 +18,7 @@ python -m pip install .
 # Compiling notes
 
 `brew install typst`
+
 `typst compile notes.typ`
 
 
