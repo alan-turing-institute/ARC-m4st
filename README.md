@@ -15,6 +15,11 @@ python -m pip install .
 
 ## Usage
 
+# Compiling notes
+
+`brew install typst`
+`typst compile notes.typ`
+
 
 ## License
 
