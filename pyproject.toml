@@ -26,7 +26,10 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "ipykernel>=6.29.5",
+    "nltk>=3.9.1",
+]
 
 [project.optional-dependencies]
 dev = [
