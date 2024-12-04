@@ -16,7 +16,7 @@ class ProcessDEMETR:
 
         # Conversion from DEMETR language tag to SONAR language code
         self.language_codes = {
-            "chinese_simple": "cmn_Hans",  # Hans for Simplified script
+            "chinese_simple": "zho_Hans",  # Hans for Simplified script
             "czech": "ces_Latn",
             "french": "fra_Latn",
             "german": "deu_Latn",
