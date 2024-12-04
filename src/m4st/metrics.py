@@ -25,13 +25,16 @@ class BLASERScore:
 
     def __init__(self) -> None:
         self.blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
-        self.blaser_qe = load_blaser_model("blaser_2_0_qe").eval()
+        # self.blaser_qe = load_blaser_model("blaser_2_0_qe").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
             encoder="text_sonar_basic_encoder", tokenizer="text_sonar_basic_encoder"
         )
 
-    def blaser_score(self, reference: str, prediction: str, source: str) -> float:
-        src_embs = self.text_embedder.predict([source], source_lang="eng_Latn")
+    def blaser_ref_score(
+        self, reference: str, prediction: str, source: str, source_lang_code: str
+    ) -> float:
+
+        src_embs = self.text_embedder.predict([source], source_lang=source_lang_code)
         ref_embs = self.text_embedder.predict([reference], source_lang="eng_Latn")
         mt_embs = self.text_embedder.predict([prediction], source_lang="eng_Latn")
 
