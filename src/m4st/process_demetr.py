@@ -2,6 +2,7 @@
 Script for running BLEU, SacreBLEU, and BLASER 2.0 on the DEMETR dataset.
 """
 
+import csv
 import os
 
 import numpy as np
@@ -12,7 +13,9 @@ from m4st.utils import load_json
 
 
 class ProcessDEMETR:
-    def __init__(self) -> None:
+    def __init__(
+        self, output_filepath: os.PathLike | str, demetr_root: os.PathLike | str
+    ) -> None:
 
         # Conversion from DEMETR language tag to SONAR language code
         self.language_codes = {
@@ -27,15 +30,22 @@ class ProcessDEMETR:
             "russian": "rus_Cyrl",
             "spanish": "spa_Latn",
         }
+        self.output_path = output_filepath
+        self.demetr_root = demetr_root
+
+        with open(self.output_path, "w") as output_file:
+            writer = csv.writer(output_file)
+            writer.writerow(["category", "BLEU", "SacreBLEU", "BLASER"])
 
     def process_demetr_category(
         self,
+        category: int,
         cat_fp: str,
-        dataset_root: os.PathLike | str,
+        num_samples: int,
         reverse_accuracy: bool = False,
     ) -> list:
 
-        curr_ds_path = os.path.join(dataset_root, cat_fp)
+        curr_ds_path = os.path.join(self.demetr_root, cat_fp)
         json_data = load_json(curr_ds_path)
 
         nltk_bleu_mt = []
@@ -85,45 +95,33 @@ class ProcessDEMETR:
             sacre_bleu_res = np.count_nonzero(sacre_bleu_mask)
             blaser_res = np.count_nonzero(blaser_mask)
 
-        return nltk_bleu_res, sacre_bleu_res, blaser_res
+        nltk_bleu_avg = nltk_bleu_res / num_samples * 100
+        sacre_bleu_avg = sacre_bleu_res / num_samples * 100
+        blaser_avg = blaser_res / num_samples * 100
+
+        with open(self.output_path, "a") as output_file:
+            csv_writer = csv.writer(output_file)
+            csv_writer.writerow([category, nltk_bleu_avg, sacre_bleu_avg, blaser_avg])
 
     def process_demetr(
         self,
-        dataset_dir: os.PathLike | str,
         samples_per_cat: int = 1000,
         cats_to_process: list | None = None,
     ) -> pd.DataFrame:
 
         if cats_to_process is None:
             cats_to_process = []
-        sacre_bleu_res = []
-        nltk_bleu_res = []
-        blaser_res = []
-        cat = []
 
         # Get list of JSON files
         # Each file contains sentences for a single DEMETR category
-        dataset_list = os.listdir(dataset_dir)
+        dataset_list = os.listdir(self.demetr_root)
 
         for ds in dataset_list:
+            print(f"Processing input file {ds}")
             ds_cat = int(ds.split("_")[1].strip("id"))
 
             if ds_cat in cats_to_process or not cats_to_process:
 
-                cat.append(ds_cat)
-
                 reverse_acc = ds_cat == 35
 
-                metrics = self.process_demetr_category(ds, dataset_dir, reverse_acc)
-                nltk_bleu_res.append(metrics[0] / samples_per_cat * 100)
-                sacre_bleu_res.append(metrics[1] / samples_per_cat * 100)
-                blaser_res.append(metrics[2] / samples_per_cat * 100)
-
-        return pd.DataFrame(
-            {
-                "category": cat,
-                "BLEU": nltk_bleu_res,
-                "SacreBLEU": sacre_bleu_res,
-                "BLASER": blaser_res,
-            }
-        )
+                self.process_demetr_category(ds_cat, ds, samples_per_cat, reverse_acc)
