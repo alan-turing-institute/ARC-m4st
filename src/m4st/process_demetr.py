@@ -35,7 +35,9 @@ class ProcessDEMETR:
 
         with open(self.output_path, "w") as output_file:
             writer = csv.writer(output_file)
-            writer.writerow(["category", "BLEU", "SacreBLEU", "BLASER"])
+            writer.writerow(
+                ["category", "BLEU", "SacreBLEU", "BLASER_ref", "BLASER_qa"]
+            )
 
     def process_demetr_category(
         self,
@@ -54,8 +56,11 @@ class ProcessDEMETR:
         sacre_bleu_mt = []
         sacre_bleu_d = []
 
-        blaser_mt = []
-        blaser_d = []
+        blaser_ref_mt = []
+        blaser_ref_d = []
+
+        blaser_qa_mt = []
+        blaser_qa_d = []
 
         sacre_bleu = SacreBLEUScore()
         blaser = BLASERScore()
@@ -73,35 +78,47 @@ class ProcessDEMETR:
             nltk_bleu_d.append(nltk_bleu_score(ref_txt, dfluent_txt))
             sacre_bleu_mt.append(sacre_bleu.get_score(ref_txt, mt_txt))
             sacre_bleu_d.append(sacre_bleu.get_score(ref_txt, dfluent_txt))
-            blaser_mt.append(
+            blaser_ref_mt.append(
                 blaser.blaser_ref_score(ref_txt, mt_txt, src_text, blaser_lang_code)
             )
-            blaser_d.append(
+            blaser_ref_d.append(
                 blaser.blaser_ref_score(
                     ref_txt, dfluent_txt, src_text, blaser_lang_code
                 )
             )
+            blaser_qa_mt.append(
+                blaser.blaser_qa_score(mt_txt, src_text, blaser_lang_code)
+            )
+            blaser_qa_d.append(
+                blaser.blaser_qa_score(dfluent_txt, src_text, blaser_lang_code)
+            )
 
         nltk_bleu_mask = np.array(nltk_bleu_mt) > np.array(nltk_bleu_d)
         sacre_bleu_mask = np.array(sacre_bleu_mt) > np.array(sacre_bleu_d)
-        blaser_mask = np.array(blaser_mt) > np.array(blaser_d)
+        blaser_ref_mask = np.array(blaser_ref_mt) > np.array(blaser_ref_d)
+        blaser_qa_mask = np.array(blaser_qa_mt) > np.array(blaser_qa_d)
 
         if reverse_accuracy:
             nltk_bleu_res = np.count_nonzero(~nltk_bleu_mask)
             sacre_bleu_res = np.count_nonzero(~sacre_bleu_mask)
-            blaser_res = np.count_nonzero(~blaser_mask)
+            blaser_ref_res = np.count_nonzero(~blaser_ref_mask)
+            blaser_qa_res = np.count_nonzero(~blaser_qa_mask)
         else:
             nltk_bleu_res = np.count_nonzero(nltk_bleu_mask)
             sacre_bleu_res = np.count_nonzero(sacre_bleu_mask)
-            blaser_res = np.count_nonzero(blaser_mask)
+            blaser_ref_res = np.count_nonzero(blaser_ref_mask)
+            blaser_qa_res = np.count_nonzero(blaser_qa_mask)
 
         nltk_bleu_avg = nltk_bleu_res / num_samples * 100
         sacre_bleu_avg = sacre_bleu_res / num_samples * 100
-        blaser_avg = blaser_res / num_samples * 100
+        blaser_ref_avg = blaser_ref_res / num_samples * 100
+        blaser_qa_avg = blaser_qa_res / num_samples * 100
 
         with open(self.output_path, "a") as output_file:
             csv_writer = csv.writer(output_file)
-            csv_writer.writerow([category, nltk_bleu_avg, sacre_bleu_avg, blaser_avg])
+            csv_writer.writerow(
+                [category, nltk_bleu_avg, sacre_bleu_avg, blaser_ref_avg, blaser_qa_avg]
+            )
 
     def process_demetr(
         self,
