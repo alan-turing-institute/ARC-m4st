@@ -39,6 +39,18 @@ class ProcessDEMETR:
                 ["category", "BLEU", "SacreBLEU", "BLASER_ref", "BLASER_qa"]
             )
 
+    def get_accuracy_score(
+        self,
+        mt_scores: list,
+        dfluent_scores: list,
+        num_samples: int,
+        reverse_accuracy: bool,
+    ) -> float:
+
+        mask = np.array(mt_scores) > np.array(dfluent_scores)
+        result = np.count_nonzero(~mask) if reverse_accuracy else np.count_nonzero(mask)
+        return result / num_samples * 100
+
     def process_demetr_category(
         self,
         category: int,
@@ -74,10 +86,13 @@ class ProcessDEMETR:
             src_lang = sentence["lang_tag"]  # Source language
             blaser_lang_code = self.language_codes[src_lang]
 
+            # String-based metrics
             nltk_bleu_mt.append(nltk_bleu_score(ref_txt, mt_txt))
             nltk_bleu_d.append(nltk_bleu_score(ref_txt, dfluent_txt))
             sacre_bleu_mt.append(sacre_bleu.get_score(ref_txt, mt_txt))
             sacre_bleu_d.append(sacre_bleu.get_score(ref_txt, dfluent_txt))
+
+            # Model-based metrics
             blaser_ref_mt.append(
                 blaser.blaser_ref_score(ref_txt, mt_txt, src_text, blaser_lang_code)
             )
@@ -93,26 +108,18 @@ class ProcessDEMETR:
                 blaser.blaser_qa_score(dfluent_txt, src_text, blaser_lang_code)
             )
 
-        nltk_bleu_mask = np.array(nltk_bleu_mt) > np.array(nltk_bleu_d)
-        sacre_bleu_mask = np.array(sacre_bleu_mt) > np.array(sacre_bleu_d)
-        blaser_ref_mask = np.array(blaser_ref_mt) > np.array(blaser_ref_d)
-        blaser_qa_mask = np.array(blaser_qa_mt) > np.array(blaser_qa_d)
-
-        if reverse_accuracy:
-            nltk_bleu_res = np.count_nonzero(~nltk_bleu_mask)
-            sacre_bleu_res = np.count_nonzero(~sacre_bleu_mask)
-            blaser_ref_res = np.count_nonzero(~blaser_ref_mask)
-            blaser_qa_res = np.count_nonzero(~blaser_qa_mask)
-        else:
-            nltk_bleu_res = np.count_nonzero(nltk_bleu_mask)
-            sacre_bleu_res = np.count_nonzero(sacre_bleu_mask)
-            blaser_ref_res = np.count_nonzero(blaser_ref_mask)
-            blaser_qa_res = np.count_nonzero(blaser_qa_mask)
-
-        nltk_bleu_avg = nltk_bleu_res / num_samples * 100
-        sacre_bleu_avg = sacre_bleu_res / num_samples * 100
-        blaser_ref_avg = blaser_ref_res / num_samples * 100
-        blaser_qa_avg = blaser_qa_res / num_samples * 100
+        nltk_bleu_avg = self.get_accuracy_score(
+            nltk_bleu_mt, nltk_bleu_d, num_samples, reverse_accuracy
+        )
+        sacre_bleu_avg = self.get_accuracy_score(
+            sacre_bleu_mt, sacre_bleu_d, num_samples, reverse_accuracy
+        )
+        blaser_ref_avg = self.get_accuracy_score(
+            blaser_ref_mt, blaser_ref_d, num_samples, reverse_accuracy
+        )
+        blaser_qa_avg = self.get_accuracy_score(
+            blaser_qa_mt, blaser_qa_d, num_samples, reverse_accuracy
+        )
 
         with open(self.output_path, "a") as output_file:
             csv_writer = csv.writer(output_file)
