@@ -47,7 +47,7 @@ class BLASERScore:
         src_embs = self.text_embedder.predict([source], source_lang=source_lang_code)
         mt_embs = self.text_embedder.predict([prediction], source_lang="eng_Latn")
 
-        return self.blaser_qa(src=src_embs, mt=mt_embs).item()
+        return self.blaser_qe(src=src_embs, mt=mt_embs).item()
 
 
 class COMETScore:
