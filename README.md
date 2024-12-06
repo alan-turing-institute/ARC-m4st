@@ -25,7 +25,7 @@ python -m pip install .
 
 Go [https://ca.talkbank.org/access/CallHome](here), select the conversation language, create account, then you can download the "media folder". There you can find the .cha files, which contain the transcriptions.
 
-To load the transcriptions as a bag of sentences, use `m4st.parse.TranscriptParser.from_folder` to load all conversation lines. This class does not group them by participant, or conversation - it just loads every lines as an entry to a list (+ some pre-processing).
+To load the transcriptions as a bag of sentences, use `m4st.parse.TranscriptParser.from_folder` to load all conversation lines. This class does not group them by participant, or conversation - it just loads every line as an entry to a list (+ some pre-processing).
 
 
 ## License
