@@ -24,7 +24,7 @@ Either way, the translation will be influenced by the domain shift due to filler
 //We don't know the real world distribution of filler words, but we could use a LLM to sample from $bb(P)(hat(x) | x)$, where $x$ is the clean input, and $hat(x)$ is the filler-word-corrupted input.
 
 The translation model can be defined as $cal(T): x arrow x^prime$, where $x^prime$ is the translated text.
-The metric can be defined as $cal(M): x^prime, x, {y_i}_(i=1)^N arrow bb(R)$, where $y_i$ are reference translations provided by $N$ translators.
+The metric can be defined as $cal(M): [a], x^prime, x, {y_i}_(i=1)^N arrow bb(R)$, where $y_i$ are reference translations provided by $N$ translators, and $a$ is the source audio (denoted optional since some metrics don't accept it).
 In our use case $N=1$.
 
 We are generally not interested in benchmarking different models, so we can assume that $cal(T)$ is given.
