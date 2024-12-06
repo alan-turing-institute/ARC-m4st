@@ -8,7 +8,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from m4st.metrics import BLASERScore, SacreBLEUScore, nltk_bleu_score
+from m4st.metrics import BLASERScore, COMETScore, SacreBLEUScore, nltk_bleu_score
 from m4st.utils import load_json
 
 
@@ -36,7 +36,15 @@ class ProcessDEMETR:
         with open(self.output_path, "w") as output_file:
             writer = csv.writer(output_file)
             writer.writerow(
-                ["category", "BLEU", "SacreBLEU", "BLASER_ref", "BLASER_qa"]
+                [
+                    "category",
+                    "BLEU",
+                    "SacreBLEU",
+                    "BLASER_ref",
+                    "BLASER_qe",
+                    "COMET_ref",
+                    "COMET_qe",
+                ]
             )
 
     def get_accuracy_score(
@@ -71,11 +79,18 @@ class ProcessDEMETR:
         blaser_ref_mt = []
         blaser_ref_d = []
 
-        blaser_qa_mt = []
-        blaser_qa_d = []
+        blaser_qe_mt = []
+        blaser_qe_d = []
+
+        comet_ref_mt = []
+        comet_ref_d = []
+
+        comet_qe_mt = []
+        comet_qe_d = []
 
         sacre_bleu = SacreBLEUScore()
         blaser = BLASERScore()
+        comet = COMETScore()
 
         for sentence in json_data:
 
@@ -93,6 +108,7 @@ class ProcessDEMETR:
             sacre_bleu_d.append(sacre_bleu.get_score(ref_txt, dfluent_txt))
 
             # Model-based metrics
+            # BLASER-2.0
             blaser_ref_mt.append(
                 blaser.blaser_ref_score(ref_txt, mt_txt, src_text, blaser_lang_code)
             )
@@ -101,13 +117,20 @@ class ProcessDEMETR:
                     ref_txt, dfluent_txt, src_text, blaser_lang_code
                 )
             )
-            blaser_qa_mt.append(
-                blaser.blaser_qa_score(mt_txt, src_text, blaser_lang_code)
+            blaser_qe_mt.append(
+                blaser.blaser_qe_score(mt_txt, src_text, blaser_lang_code)
             )
-            blaser_qa_d.append(
-                blaser.blaser_qa_score(dfluent_txt, src_text, blaser_lang_code)
+            blaser_qe_d.append(
+                blaser.blaser_qe_score(dfluent_txt, src_text, blaser_lang_code)
             )
 
+            # COMET
+            comet_ref_mt.append(comet.comet_ref_score(ref_txt, mt_txt, src_text))
+            comet_ref_d.append(comet.comet_ref_score(ref_txt, dfluent_txt, src_text))
+            comet_qe_mt.append(comet.comet_qe_score(mt_txt, src_text))
+            comet_qe_d.append(comet.comet_qe_score(dfluent_txt, src_text))
+
+        # Calculate accuracy as in DEMETR paper
         nltk_bleu_avg = self.get_accuracy_score(
             nltk_bleu_mt, nltk_bleu_d, num_samples, reverse_accuracy
         )
@@ -117,14 +140,28 @@ class ProcessDEMETR:
         blaser_ref_avg = self.get_accuracy_score(
             blaser_ref_mt, blaser_ref_d, num_samples, reverse_accuracy
         )
-        blaser_qa_avg = self.get_accuracy_score(
-            blaser_qa_mt, blaser_qa_d, num_samples, reverse_accuracy
+        blaser_qe_avg = self.get_accuracy_score(
+            blaser_qe_mt, blaser_qe_d, num_samples, reverse_accuracy
+        )
+        comet_ref_avg = self.get_accuracy_score(
+            comet_ref_mt, comet_ref_d, num_samples, reverse_accuracy
+        )
+        comet_qe_avg = self.get_accuracy_score(
+            comet_qe_mt, comet_qe_d, num_samples, reverse_accuracy
         )
 
         with open(self.output_path, "a") as output_file:
             csv_writer = csv.writer(output_file)
             csv_writer.writerow(
-                [category, nltk_bleu_avg, sacre_bleu_avg, blaser_ref_avg, blaser_qa_avg]
+                [
+                    category,
+                    nltk_bleu_avg,
+                    sacre_bleu_avg,
+                    blaser_ref_avg,
+                    blaser_qe_avg,
+                    comet_ref_avg,
+                    comet_qe_avg,
+                ]
             )
 
     def process_demetr(
