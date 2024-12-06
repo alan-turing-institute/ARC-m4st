@@ -178,11 +178,10 @@ class ProcessDEMETR:
         dataset_list = os.listdir(self.demetr_root)
 
         for ds in dataset_list:
-            print(f"Processing input file {ds}")
             ds_cat = int(ds.split("_")[1].strip("id"))
 
             if ds_cat in cats_to_process or not cats_to_process:
-
+                print(f"Processing input file {ds}")
                 reverse_acc = ds_cat == 35
 
                 self.process_demetr_category(ds_cat, ds, samples_per_cat, reverse_acc)
