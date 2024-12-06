@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Evaluation of Metrics for Speech Translation (M4ST)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "==3.11.*"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -26,7 +26,19 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "evaluate>=0.4.3",
+    "fairseq2>=0.2.0",
+    "ipykernel>=6.29.5",
+    "nltk>=3.9.1",
+    "pandas>=2.2.3",
+    "sacrebleu>=2.4.3",
+    "seaborn>=0.13.2",
+    "sonar-space>=0.2.0",
+    "torch==2.0.1",
+    "torchvision>=0.15.2",
+    "unbabel-comet>=2.2.4",
+]
 
 [project.optional-dependencies]
 dev = [
