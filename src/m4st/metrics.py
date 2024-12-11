@@ -54,16 +54,21 @@ class COMETScore:
     """Applies COMET and COMET-QE metrics from the evaluate library."""
 
     def __init__(self) -> None:
+
         self.comet = evaluate.load("comet", model="wmt21-comet-mqm")
         self.comet_qe = evaluate.load("comet", model="wmt21-comet-qe-mqm")
 
     def comet_ref_score(self, reference: str, prediction: str, source: str) -> float:
 
         score = self.comet.compute(
-            predictions=[prediction], references=[reference], sources=[source]
+            predictions=[prediction],
+            references=[reference],
+            sources=[source],
         )
-        return score["score"]
+        # Note this only works because we're passing through a single example
+        return score["scores"][0]
 
     def comet_qe_score(self, prediction: str, source: str) -> float:
         score = self.comet_qe.compute(predictions=[prediction], sources=[source])
-        return score["score"]
+        # Single example again
+        return score["scores"][0]
