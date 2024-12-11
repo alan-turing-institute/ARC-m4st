@@ -29,6 +29,7 @@ classifiers = [
 dependencies = [
     "evaluate>=0.4.3",
     "fairseq2>=0.2.0",
+    "filelock>=3.0.12",
     "ipykernel>=6.29.5",
     "nltk>=3.9.1",
     "pandas>=2.2.3",
@@ -37,7 +38,7 @@ dependencies = [
     "sonar-space>=0.2.0",
     "torch==2.0.1",
     "torchvision>=0.15.2",
-    "unbabel-comet>=2.2.4",
+    "unbabel-comet==2.2.3",
 ]
 
 [project.optional-dependencies]
