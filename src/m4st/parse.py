@@ -60,11 +60,3 @@ class TranscriptParser:
             elif line.startswith("*"):
                 # Participant line
                 self.parse_line(line)
-
-
-if __name__ == "__main__":
-    # Input transcription data
-    # Parse the transcription
-    folder_path = "/Users/bvodenicharski/Downloads/deu"
-    tp = TranscriptParser.from_folder(folder_path)
-    print(len(tp.lines))
