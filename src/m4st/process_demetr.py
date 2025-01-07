@@ -8,8 +8,13 @@ import os
 import numpy as np
 import pandas as pd
 
-from m4st.metrics import BLASERScore, COMETScore, SacreBLEUScore, nltk_bleu_score
-from m4st.utils import load_json
+from m4st.metrics import (
+    BLASERQEScore,
+    BLASERRefScore,
+    COMETQEScore,
+    COMETRefScore,
+    SacreBLEUScore,
+)
 
 
 class ProcessDEMETR:
@@ -45,10 +50,14 @@ class ProcessDEMETR:
 
         if "Sacre_BLEU" in metrics_to_use:
             self.sacre_bleu = SacreBLEUScore()
-        if "BLASER_ref" in metrics_to_use or "BLASER_qe" in metrics_to_use:
-            self.blaser = BLASERScore()
-        if "COMET_ref" in metrics_to_use or "COMET_qe" in metrics_to_use:
-            self.comet = COMETScore()
+        if "BLASER_ref" in metrics_to_use:
+            self.blaser_ref = BLASERRefScore()
+        if "BLASER_qe" in metrics_to_use():
+            self.blaser_qe = BLASERQEScore()
+        if "COMET_ref" in metrics_to_use:
+            self.comet_ref = COMETRefScore()
+        if "COMET_qe" in metrics_to_use:
+            self.comet_qe = COMETQEScore()
 
     def process_demetr_category(
         self,
@@ -59,53 +68,42 @@ class ProcessDEMETR:
     ) -> list:
 
         curr_ds_path = os.path.join(self.demetr_root, cat_fp)
-        json_data = load_json(curr_ds_path)
 
+        # Load sentences into dataframe
+        demetr_df = pd.read_json(curr_ds_path)
+
+        ref_txts = demetr_df["eng_sent"]  # Human translation
+        mt_txts = demetr_df["mt_sent"]  # Original machine translation
+        src_txts = demetr_df["src_sent"]  # Foreign language source
+        dfluent_txts = demetr_df["pert_sent"]  # Perturbed machine translation
+        src_langs = demetr_df["lang_tag"]  # Source language
+        blaser_lang_codes = src_langs.replace(self.language_codes)
+
+        # Set up output arrays - typically (1000, n) where n is number of metrics
+        #  Two sets of results for each metric, one fluent and one disfluent
         mt_results = np.zeros((num_samples, len(self.metrics_to_use)))
         dis_results = np.zeros((num_samples, len(self.metrics_to_use)))
 
-        for i, sentence in enumerate(json_data):
-
-            ref_txt = sentence["eng_sent"]  # Human translation
-            mt_txt = sentence["mt_sent"]  # Original machine translation
-            src_text = sentence["src_sent"]  # Foreign language source
-            dfluent_txt = sentence["pert_sent"]  # Perturbed machine translation
-            src_lang = sentence["lang_tag"]  # Source language
-            blaser_lang_code = self.language_codes[src_lang]
-
-            for j, metric in enumerate(self.metrics_to_use):
-                if metric == "BLEU":
-                    mt_results[i, j] = nltk_bleu_score(ref_txt, mt_txt)
-                    dis_results[i, j] = nltk_bleu_score(ref_txt, dfluent_txt)
-                elif metric == "Sacre_BLEU":
-                    mt_results[i, j] = self.sacre_bleu.get_score(ref_txt, mt_txt)
-                    dis_results[i, j] = self.sacre_bleu.get_score(ref_txt, dfluent_txt)
-                elif metric == "BLASER_ref":
-                    mt_results[i, j] = self.blaser.blaser_ref_score(
-                        ref_txt, mt_txt, src_text, blaser_lang_code
-                    )
-                    dis_results[i, j] = self.blaser.blaser_ref_score(
-                        ref_txt, dfluent_txt, src_text, blaser_lang_code
-                    )
-                elif metric == "BLASER_qe":
-                    mt_results[i, j] = self.blaser.blaser_qe_score(
-                        mt_txt, src_text, blaser_lang_code
-                    )
-                    dis_results[i, j] = self.blaser.blaser_qe_score(
-                        dfluent_txt, src_text, blaser_lang_code
-                    )
-                elif metric == "COMET_ref":
-                    mt_results[i, j] = self.comet.comet_ref_score(
-                        ref_txt, mt_txt, src_text
-                    )
-                    dis_results[i, j] = self.comet.comet_ref_score(
-                        ref_txt, dfluent_txt, src_text
-                    )
-                elif metric == "COMET_qe":
-                    mt_results[i, j] = self.comet.comet_qe_score(mt_txt, src_text)
-                    dis_results[i, j] = self.comet.comet_qe_score(dfluent_txt, src_text)
-                else:
-                    print(f"Unknown metric {metric}")
+        for j, metric in enumerate(self.metrics_to_use):
+            if metric == "COMET_ref":
+                mt_results[:, j] = self.comet_ref.get_scores(demetr_df)
+                dis_results[:, j] = self.comet_ref.get_scores(
+                    ref_txts, dfluent_txts, src_txts
+                )
+            if metric == "COMET_qe":
+                mt_results[:, j] = self.comet_qe.get_scores(demetr_df)
+                dis_results[:, j] = self.comet_qe.get_scores(
+                    ref_txts, dfluent_txts, src_txts
+                )
+            if metric == "BLASER_ref":
+                mt_results[:, j] = self.blaser_ref.get_scores(
+                    ref_txts, mt_txts, src_txts, blaser_lang_codes
+                )
+                dis_results[:, j] = self.blaser_ref.get_scores(
+                    ref_txts, dfluent_txts, src_txts, blaser_lang_codes
+                )
+            else:
+                print(f"Unknown metric {metric}")
 
         mask = mt_results > dis_results
         if reverse_accuracy:
@@ -139,6 +137,10 @@ class ProcessDEMETR:
 
             if ds_cat in cats_to_process or not cats_to_process:
                 print(f"Processing input file {ds}")
+
+                # Accuracy metric is reversed for category 35 as in this case the
+                # reference text is passed as the disfluent translation and should
+                # therefore score more highly
                 reverse_acc = ds_cat == 35
 
                 self.process_demetr_category(
