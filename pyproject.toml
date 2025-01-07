@@ -27,7 +27,8 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "tqdm"
+  "tqdm",
+  "requests"
 ]
 
 [project.optional-dependencies]
