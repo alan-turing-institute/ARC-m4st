@@ -102,6 +102,9 @@ class ProcessDEMETR:
                 dis_results[:, j] = self.blaser_ref.get_scores(
                     ref_txts, dfluent_txts, src_txts, blaser_lang_codes
                 )
+            if metric == "Sacre_BLEU":
+                mt_results[:, j] = self.sacre_bleu.get_scores(ref_txts, mt_txts)
+                dis_results[:, j] = self.sacre_bleu.get_scores(ref_txts, dfluent_txts)
             else:
                 print(f"Unknown metric {metric}")
 
