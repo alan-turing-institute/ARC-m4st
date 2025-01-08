@@ -1,13 +1,8 @@
 import evaluate
 import numpy as np
 import pandas as pd
-from nltk.translate.bleu_score import sentence_bleu
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
-
-
-def nltk_bleu_score(reference: str, prediction: str) -> float:
-    return sentence_bleu([reference.split()], prediction.split())
 
 
 class SacreBLEUScore:
@@ -16,10 +11,18 @@ class SacreBLEUScore:
     def __init__(self) -> None:
         self.bleu = evaluate.load("sacrebleu")
 
-    def get_score(self, reference: str, prediction: str) -> float:
+    def get_score(self, references: pd.Series, predictions: pd.Series) -> float:
 
-        score = self.bleu.compute(predictions=[prediction], references=[[reference]])
-        return score["score"]
+        results = []
+
+        # SacreBLEU doesn't seem to support batching that isn't document-level, so
+        # each sentence must be run through separately
+        for index, ref_txt in references.items():
+            mt_txt = predictions[index]
+            score = self.bleu.compute(predictions=[mt_txt], references=[[ref_txt]])
+            results.append(score["score"])
+
+        return results
 
 
 class BLASERRefScore:
