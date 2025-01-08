@@ -1,27 +1,17 @@
-from abc import ABC, abstractmethod
-
 import evaluate
 import numpy as np
-import pandas as pd
+from pandas import Series
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 
 
-class Metric(ABC):
-
-    @abstractmethod
-    def get_scores():
-        pass
-
-
-class SacreBLEUScore(Metric):
+class SacreBLEUScore:
     """Applies SacreBLEU from the evaluate library."""
 
     def __init__(self) -> None:
         self.bleu = evaluate.load("sacrebleu")
 
-    def get_scores(self, references: pd.Series, predictions: pd.Series) -> float:
-
+    def get_scores(self, references: Series, predictions: Series) -> list:
         results = []
 
         # SacreBLEU doesn't seem to support batching that isn't document-level, so
@@ -34,7 +24,7 @@ class SacreBLEUScore(Metric):
         return results
 
 
-class BLASERRefScore(Metric):
+class BLASERRefScore:
     """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
     def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
@@ -48,12 +38,11 @@ class BLASERRefScore(Metric):
 
     def get_scores(
         self,
-        references: pd.Series,
-        predictions: pd.Series,
-        sources: pd.Series,
-        source_lang_codes: pd.Series,
-    ) -> float:
-
+        references: Series,
+        predictions: Series,
+        sources: Series,
+        source_lang_codes: Series,
+    ) -> list:
         langs = np.unique(source_lang_codes)
 
         # Store results for all languages so they can be returned together
@@ -84,7 +73,7 @@ class BLASERRefScore(Metric):
         return results
 
 
-class BLASERQEScore(Metric):
+class BLASERQEScore:
     """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
     library."""
 
@@ -98,9 +87,8 @@ class BLASERQEScore(Metric):
         self.ref_lang_code = ref_lang_code
 
     def get_scores(
-        self, predictions: pd.Series, sources: pd.Series, source_lang_codes: pd.Series
-    ) -> float:
-
+        self, predictions: Series, sources: Series, source_lang_codes: Series
+    ) -> list:
         langs = np.unique(source_lang_codes)
 
         # Store results for all languages so they can be returned together
@@ -119,38 +107,39 @@ class BLASERQEScore(Metric):
             )
 
             for i in range(len(src_embs)):
-                result = self.blaser_ref(src=src_embs[[i]], mt=mt_embs[[i]]).item()
+                result = self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
                 results.append(result.item())
 
         return results
 
 
-class COMETRefScore(Metric):
+class COMETRefScore:
     """Applies COMET reference-based metric from the evaluate library."""
 
     def __init__(self) -> None:
-
         self.comet = evaluate.load("comet", model="wmt21-comet-mqm")
 
     def get_scores(
-        self, references: pd.Series, predictions: pd.Series, sources: pd.Series
-    ) -> float:
-
-        score = self.comet.compute(
+        self, references: Series, predictions: Series, sources: Series
+    ) -> list:
+        scores = self.comet.compute(
             predictions=predictions,
             references=references,
             sources=sources,
         )
-        return score["scores"]
+        return scores["scores"]
 
 
-class COMETQEScore(Metric):
+class COMETQEScore:
     """Applies COMET QE metric from the evaluate library."""
 
     def __init__(self) -> None:
-
         self.comet = evaluate.load("comet", model="wmt21-comet-qe-mqm")
 
-    def get_scores(self, predictions: pd.Series, sources: pd.Series) -> float:
-        score = self.comet_qe.compute(predictions=predictions, sources=sources)
-        return score["scores"]
+    def get_scores(
+        self, references: Series, predictions: Series, sources: Series
+    ) -> list:
+        scores = self.comet.compute(
+            predictions=predictions, references=references, sources=sources
+        )
+        return scores["scores"]

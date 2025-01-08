@@ -24,7 +24,6 @@ class ProcessDEMETR:
         demetr_root: os.PathLike | str,
         metrics_to_use: list,
     ) -> None:
-
         # Conversion from DEMETR language tag to SONAR language code
         self.language_codes = {
             "chinese_simple": "zho_Hans",  # Hans for Simplified script
@@ -48,11 +47,11 @@ class ProcessDEMETR:
             writer = csv.writer(output_file)
             writer.writerow(colnames)
 
-        if "Sacre_BLEU" in metrics_to_use:
+        if "SacreBLEU" in metrics_to_use:
             self.sacre_bleu = SacreBLEUScore()
         if "BLASER_ref" in metrics_to_use:
             self.blaser_ref = BLASERRefScore()
-        if "BLASER_qe" in metrics_to_use():
+        if "BLASER_qe" in metrics_to_use:
             self.blaser_qe = BLASERQEScore()
         if "COMET_ref" in metrics_to_use:
             self.comet_ref = COMETRefScore()
@@ -65,8 +64,7 @@ class ProcessDEMETR:
         cat_fp: str,
         num_samples: int,
         reverse_accuracy: bool = False,
-    ) -> list:
-
+    ) -> None:
         curr_ds_path = os.path.join(self.demetr_root, cat_fp)
 
         # Load sentences into dataframe
@@ -86,12 +84,14 @@ class ProcessDEMETR:
 
         for j, metric in enumerate(self.metrics_to_use):
             if metric == "COMET_ref":
-                mt_results[:, j] = self.comet_ref.get_scores(demetr_df)
+                mt_results[:, j] = self.comet_ref.get_scores(
+                    ref_txts, mt_txts, src_txts
+                )
                 dis_results[:, j] = self.comet_ref.get_scores(
                     ref_txts, dfluent_txts, src_txts
                 )
             if metric == "COMET_qe":
-                mt_results[:, j] = self.comet_qe.get_scores(demetr_df)
+                mt_results[:, j] = self.comet_qe.get_scores(ref_txts, mt_txts, src_txts)
                 dis_results[:, j] = self.comet_qe.get_scores(
                     ref_txts, dfluent_txts, src_txts
                 )
@@ -102,7 +102,14 @@ class ProcessDEMETR:
                 dis_results[:, j] = self.blaser_ref.get_scores(
                     ref_txts, dfluent_txts, src_txts, blaser_lang_codes
                 )
-            if metric == "Sacre_BLEU":
+            if metric == "BLASER_qe":
+                mt_results[:, j] = self.blaser_qe.get_scores(
+                    mt_txts, src_txts, blaser_lang_codes
+                )
+                dis_results[:, j] = self.blaser_qe.get_scores(
+                    dfluent_txts, src_txts, blaser_lang_codes
+                )
+            if metric == "SacreBLEU":
                 mt_results[:, j] = self.sacre_bleu.get_scores(ref_txts, mt_txts)
                 dis_results[:, j] = self.sacre_bleu.get_scores(ref_txts, dfluent_txts)
             else:
@@ -127,7 +134,6 @@ class ProcessDEMETR:
         samples_per_cat: int = 1000,
         cats_to_process: list | None = None,
     ) -> pd.DataFrame:
-
         if cats_to_process is None:
             cats_to_process = []
 
