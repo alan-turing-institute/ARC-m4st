@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+
 import evaluate
 import numpy as np
 import pandas as pd
@@ -5,13 +7,20 @@ from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 
 
-class SacreBLEUScore:
+class Metric(ABC):
+
+    @abstractmethod
+    def get_scores():
+        pass
+
+
+class SacreBLEUScore(Metric):
     """Applies SacreBLEU from the evaluate library."""
 
     def __init__(self) -> None:
         self.bleu = evaluate.load("sacrebleu")
 
-    def get_score(self, references: pd.Series, predictions: pd.Series) -> float:
+    def get_scores(self, references: pd.Series, predictions: pd.Series) -> float:
 
         results = []
 
@@ -25,7 +34,7 @@ class SacreBLEUScore:
         return results
 
 
-class BLASERRefScore:
+class BLASERRefScore(Metric):
     """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
     def __init__(self) -> None:
@@ -68,7 +77,7 @@ class BLASERRefScore:
         return results
 
 
-class BLASERQEScore:
+class BLASERQEScore(Metric):
     """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
     library."""
 
@@ -104,7 +113,7 @@ class BLASERQEScore:
         return results
 
 
-class COMETRefScore:
+class COMETRefScore(Metric):
     """Applies COMET reference-based metric from the evaluate library."""
 
     def __init__(self) -> None:
@@ -123,13 +132,13 @@ class COMETRefScore:
         return score["scores"]
 
 
-class COMETQEScore:
+class COMETQEScore(Metric):
     """Applies COMET QE metric from the evaluate library."""
 
     def __init__(self) -> None:
 
         self.comet = evaluate.load("comet", model="wmt21-comet-qe-mqm")
 
-    def comet_qe_score(self, predictions: pd.Series, sources: pd.Series) -> float:
+    def get_scores(self, predictions: pd.Series, sources: pd.Series) -> float:
         score = self.comet_qe.compute(predictions=predictions, sources=sources)
         return score["scores"]
