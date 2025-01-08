@@ -37,11 +37,14 @@ class SacreBLEUScore(Metric):
 class BLASERRefScore(Metric):
     """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
-    def __init__(self) -> None:
+    def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
         self.blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
             encoder="text_sonar_basic_encoder", tokenizer="text_sonar_basic_encoder"
         )
+        # Code defining the target language
+        # Defaults to English
+        self.ref_lang_code = ref_lang_code
 
     def get_scores(
         self,
@@ -65,8 +68,12 @@ class BLASERRefScore(Metric):
             preds_lang = np.array(predictions[mask])
 
             src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
-            ref_embs = self.text_embedder.predict(refs_lang, source_lang="eng_Latn")
-            mt_embs = self.text_embedder.predict(preds_lang, source_lang="eng_Latn")
+            ref_embs = self.text_embedder.predict(
+                refs_lang, source_lang=self.ref_lang_code
+            )
+            mt_embs = self.text_embedder.predict(
+                preds_lang, source_lang=self.ref_lang_code
+            )
 
             for i in range(len(src_embs)):
                 result = self.blaser_ref(
@@ -81,11 +88,14 @@ class BLASERQEScore(Metric):
     """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
     library."""
 
-    def __init__(self) -> None:
+    def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
         self.blaser_qe = load_blaser_model("blaser_2_0_qe").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
             encoder="text_sonar_basic_encoder", tokenizer="text_sonar_basic_encoder"
         )
+        # Code defining the target language
+        # Defaults to English
+        self.ref_lang_code = ref_lang_code
 
     def get_scores(
         self, predictions: pd.Series, sources: pd.Series, source_lang_codes: pd.Series
@@ -104,7 +114,9 @@ class BLASERQEScore(Metric):
             preds_lang = np.array(predictions[mask])
 
             src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
-            mt_embs = self.text_embedder.predict(preds_lang, source_lang="eng_Latn")
+            mt_embs = self.text_embedder.predict(
+                preds_lang, source_lang=self.ref_lang_code
+            )
 
             for i in range(len(src_embs)):
                 result = self.blaser_ref(src=src_embs[[i]], mt=mt_embs[[i]]).item()

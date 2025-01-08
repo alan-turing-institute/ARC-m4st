@@ -80,7 +80,7 @@ class ProcessDEMETR:
         blaser_lang_codes = src_langs.replace(self.language_codes)
 
         # Set up output arrays - typically (1000, n) where n is number of metrics
-        #  Two sets of results for each metric, one fluent and one disfluent
+        # Two sets of results for each metric, one fluent and one disfluent
         mt_results = np.zeros((num_samples, len(self.metrics_to_use)))
         dis_results = np.zeros((num_samples, len(self.metrics_to_use)))
 
