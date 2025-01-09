@@ -30,7 +30,8 @@ dependencies = [
   "tqdm",
   "requests",
   "transformers",
-  "torch"
+  "torch",
+  "sentencepiece"
 ]
 
 [project.optional-dependencies]
