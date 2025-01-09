@@ -41,22 +41,24 @@ class ProcessDEMETR:
         self.demetr_root = demetr_root
         self.metrics_to_use = metrics_to_use
 
-        colnames = ["category", *metrics_to_use]
+        colnames = ["category", *self.metrics_to_use]
 
         with open(self.output_path, "w") as output_file:
             writer = csv.writer(output_file)
             writer.writerow(colnames)
 
-        if "SacreBLEU" in metrics_to_use:
+        if "SacreBLEU" in self.metrics_to_use:
             self.sacre_bleu = SacreBLEUScore()
-        if "BLASER_ref" in metrics_to_use:
+        if "BLASER_ref" in self.metrics_to_use:
             self.blaser_ref = BLASERRefScore()
-        if "BLASER_qe" in metrics_to_use:
+        if "BLASER_qe" in self.metrics_to_use:
             self.blaser_qe = BLASERQEScore()
-        if "COMET_ref" in metrics_to_use:
+        if "COMET_ref" in self.metrics_to_use:
             self.comet_ref = COMETRefScore()
-        if "COMET_qe" in metrics_to_use:
+        if "COMET_qe" in self.metrics_to_use:
             self.comet_qe = COMETQEScore()
+
+        print(f"Using metrics {self.metrics_to_use}")
 
     def process_demetr_category(
         self,
@@ -90,26 +92,26 @@ class ProcessDEMETR:
                 dis_results[:, j] = self.comet_ref.get_scores(
                     ref_txts, dfluent_txts, src_txts
                 )
-            if metric == "COMET_qe":
+            elif metric == "COMET_qe":
                 mt_results[:, j] = self.comet_qe.get_scores(ref_txts, mt_txts, src_txts)
                 dis_results[:, j] = self.comet_qe.get_scores(
                     ref_txts, dfluent_txts, src_txts
                 )
-            if metric == "BLASER_ref":
+            elif metric == "BLASER_ref":
                 mt_results[:, j] = self.blaser_ref.get_scores(
                     ref_txts, mt_txts, src_txts, blaser_lang_codes
                 )
                 dis_results[:, j] = self.blaser_ref.get_scores(
                     ref_txts, dfluent_txts, src_txts, blaser_lang_codes
                 )
-            if metric == "BLASER_qe":
+            elif metric == "BLASER_qe":
                 mt_results[:, j] = self.blaser_qe.get_scores(
                     mt_txts, src_txts, blaser_lang_codes
                 )
                 dis_results[:, j] = self.blaser_qe.get_scores(
                     dfluent_txts, src_txts, blaser_lang_codes
                 )
-            if metric == "SacreBLEU":
+            elif metric == "SacreBLEU":
                 mt_results[:, j] = self.sacre_bleu.get_scores(ref_txts, mt_txts)
                 dis_results[:, j] = self.sacre_bleu.get_scores(ref_txts, dfluent_txts)
             else:
