@@ -26,7 +26,10 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+  "tqdm",
+  "requests"
+]
 
 [project.optional-dependencies]
 dev = [
@@ -70,6 +73,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = true
 strict = false
+ignore_missing_imports = true
 
 
 [tool.ruff]
