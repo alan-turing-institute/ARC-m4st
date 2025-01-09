@@ -68,7 +68,7 @@ class BLASERRefScore:
                 result = self.blaser_ref(
                     src=src_embs[[i]], ref=ref_embs[[i]], mt=mt_embs[[i]]
                 ).item()
-                results.append(result.item())
+                results.append(result)
 
         return results
 
@@ -108,7 +108,7 @@ class BLASERQEScore:
 
             for i in range(len(src_embs)):
                 result = self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
-                results.append(result.item())
+                results.append(result)
 
         return results
 
