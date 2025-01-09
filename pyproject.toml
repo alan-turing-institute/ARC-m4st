@@ -28,7 +28,10 @@ classifiers = [
 ]
 dependencies = [
   "tqdm",
-  "requests"
+  "requests",
+  "transformers",
+  "torch",
+  "sentencepiece"
 ]
 
 [project.optional-dependencies]
