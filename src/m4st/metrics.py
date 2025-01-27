@@ -1,11 +1,37 @@
+import json
+import os
+from abc import ABC, abstractmethod
+
 import evaluate
 import numpy as np
-from pandas import Series
+from pandas import DataFrame
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 
+# Conversion from DEMETR language tag to SONAR language code
+blaser_lang_conversion = {
+    "chinese_simple": "zho_Hans",  # Hans for Simplified script
+    "czech": "ces_Latn",
+    "french": "fra_Latn",
+    "german": "deu_Latn",
+    "hindi": "hin_Deva",
+    "italian": "ita_Latn",
+    "japanese": "jpn_Jpan",
+    "polish": "pol_Latn",
+    "russian": "rus_Cyrl",
+    "spanish": "spa_Latn",
+}
 
-class ChrFScore:
+
+class Metric(ABC):
+    @abstractmethod
+    def get_scores(
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        pass
+
+
+class ChrFScore(Metric):
     """Applies ChrF/++ from the evaluate library.
     When word_order=0 (default) computes original ChrF metric without including word
     n-grams. When word_order=2, computes ChrF++. The DEMETR paper refers to ChrF++
@@ -15,39 +41,73 @@ class ChrFScore:
         self.chrf = evaluate.load("chrf")
         self.word_order = word_order
 
-    def get_scores(self, references: Series, predictions: Series) -> list:
-        results = []
+    def get_scores(
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"ChrF{self.word_order}_{input_fp}"
+        results = {}
+        # ID, language, mt_score, perturbed_score
+        ref_txts = cat_data["eng_sent"]  # Human translation
+        mt_txts = cat_data["mt_sent"]  # Original machine translation
+        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
+        src_langs = cat_data["lang_tag"]  # Source language
 
-        for index, ref_txt in references.items():
-            mt_txt = predictions[index]
-            score = self.chrf.compute(
+        for index, ref_txt in ref_txts.items():
+            mt_txt = mt_txts[index]
+            d_txt = dfluent_txts[index]
+            lang = src_langs[index]
+            mt_score = self.chrf.compute(
                 predictions=[mt_txt],
                 references=[[ref_txt]],
                 word_order=self.word_order,
-                eps_smoothing=True,
             )
-            results.append(score["score"])
+            d_score = self.chrf.compute(
+                predictions=[d_txt],
+                references=[[ref_txt]],
+                word_order=self.word_order,
+            )
+            results[int(cat_data["id"][index])] = {
+                "source_language": lang,
+                "mt_score": mt_score["score"],
+                "disfluent_score": d_score["score"],
+            }
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
-        return results
 
-
-class SacreBLEUScore:
-    """Applies SacreBLEU from the evaluate library."""
+class BleuScore:
+    """Applies SacreBleu from the evaluate library."""
 
     def __init__(self) -> None:
         self.bleu = evaluate.load("sacrebleu")
 
-    def get_scores(self, references: Series, predictions: Series) -> list:
-        results = []
+    def get_scores(
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"Bleu_{input_fp}"
+        ref_txts = cat_data["eng_sent"]  # Human translation
+        mt_txts = cat_data["mt_sent"]  # Original machine translation
+        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
+        src_langs = cat_data["lang_tag"]  # Source language
 
-        # SacreBLEU doesn't seem to support batching that isn't document-level, so
+        results = {}
+
+        # SacreBleu doesn't seem to support batching that isn't document-level, so
         # each sentence must be run through separately
-        for index, ref_txt in references.items():
-            mt_txt = predictions[index]
-            score = self.bleu.compute(predictions=[mt_txt], references=[[ref_txt]])
-            results.append(score["score"])
+        for index, ref_txt in ref_txts.items():
+            mt_txt = mt_txts[index]
+            d_txt = dfluent_txts[index]
+            lang = src_langs[index]
+            mt_score = self.bleu.compute(predictions=[mt_txt], references=[[ref_txt]])
+            d_score = self.bleu.compute(predictions=[d_txt], references=[[ref_txt]])
 
-        return results
+            results[int(cat_data["id"][index])] = {
+                "source_language": lang,
+                "mt_score": mt_score["score"],
+                "disfluent_score": d_score["score"],
+            }
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
 
 class BLASERRefScore:
@@ -63,40 +123,62 @@ class BLASERRefScore:
         self.ref_lang_code = ref_lang_code
 
     def get_scores(
-        self,
-        references: Series,
-        predictions: Series,
-        sources: Series,
-        source_lang_codes: Series,
-    ) -> list:
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"BLASER_Ref_{input_fp}"
+        ref_txts = cat_data["eng_sent"]  # Human translation
+        mt_txts = cat_data["mt_sent"]  # Original machine translation
+        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
+        src_txts = cat_data["src_sent"]  # Source (original) text
+        src_langs = cat_data["lang_tag"]  # Source language
+        sentence_ids = cat_data["id"]
+        source_lang_codes = src_langs.replace(blaser_lang_conversion)
         langs = np.unique(source_lang_codes)
 
-        # Store results for all languages so they can be returned together
-        results = []
+        results = {}
 
-        # BLASER requires the source language, so at best we can batch by language as
-        # source_lang must be a string
+        # BLASER requires the source language, so at best we can batch embedding
+        # generation by language as source_lang must be a string
         for language in langs:
             mask = source_lang_codes == language
-            sources_lang = np.array(sources[mask])
-            refs_lang = np.array(references[mask])
-            preds_lang = np.array(predictions[mask])
+            sources_lang = np.array(src_txts[mask])
+            refs_lang = np.array(ref_txts[mask])
+            mt_lang = np.array(mt_txts[mask])
+            d_lang = np.array(dfluent_txts[mask])
+            src_lang = np.array(src_langs[mask])
+            ids_lang = np.array(sentence_ids[mask])
 
+            # Source embeddings
             src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
+
+            # Reference embeddings
             ref_embs = self.text_embedder.predict(
                 refs_lang, source_lang=self.ref_lang_code
             )
+            # Fluent translation embeddings
             mt_embs = self.text_embedder.predict(
-                preds_lang, source_lang=self.ref_lang_code
+                mt_lang, source_lang=self.ref_lang_code
             )
+            # Disfluent translation embeddings
+            d_embs = self.text_embedder.predict(d_lang, source_lang=self.ref_lang_code)
 
+            # Actual metric is computed one sample at a time
             for i in range(len(src_embs)):
-                result = self.blaser_ref(
+                mt_result = self.blaser_ref(
                     src=src_embs[[i]], ref=ref_embs[[i]], mt=mt_embs[[i]]
                 ).item()
-                results.append(result)
+                d_result = self.blaser_ref(
+                    src=src_embs[[i]], ref=ref_embs[[i]], mt=d_embs[[i]]
+                ).item()
 
-        return results
+                results[int(ids_lang[[i]])] = {
+                    "source_language": src_lang[i],
+                    "mt_score": mt_result,
+                    "disfluent_score": d_result,
+                }
+
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
 
 class BLASERQEScore:
@@ -113,30 +195,52 @@ class BLASERQEScore:
         self.ref_lang_code = ref_lang_code
 
     def get_scores(
-        self, predictions: Series, sources: Series, source_lang_codes: Series
-    ) -> list:
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"BLASER_QE_{input_fp}"
+        mt_txts = cat_data["mt_sent"]  # Original machine translation
+        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
+        src_txts = cat_data["src_sent"]  # Source (original) text
+        src_langs = cat_data["lang_tag"]  # Source language
+        sentence_ids = cat_data["id"]
+        source_lang_codes = src_langs.replace(blaser_lang_conversion)
         langs = np.unique(source_lang_codes)
 
-        # Store results for all languages so they can be returned together
-        results = []
+        results = {}
 
         # BLASER requires the source language, so at best we can batch by language as
         # source_lang must be a string
         for language in langs:
             mask = source_lang_codes == language
-            sources_lang = np.array(sources[mask])
-            preds_lang = np.array(predictions[mask])
+            sources_lang = np.array(src_txts[mask])
+            mt_lang = np.array(mt_txts[mask])
+            d_lang = np.array(dfluent_txts[mask])
+            src_lang = np.array(src_langs[mask])
+            ids_lang = np.array(sentence_ids[mask])
 
+            # Source embeddings
             src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
+
+            # Fluent translation embeddings
             mt_embs = self.text_embedder.predict(
-                preds_lang, source_lang=self.ref_lang_code
+                mt_lang, source_lang=self.ref_lang_code
             )
 
-            for i in range(len(src_embs)):
-                result = self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
-                results.append(result)
+            # Disfluent translation embeddings
+            d_embs = self.text_embedder.predict(d_lang, source_lang=self.ref_lang_code)
 
-        return results
+            for i in range(len(src_embs)):
+                mt_result = self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
+                d_result = self.blaser_qe(src=src_embs[[i]], mt=d_embs[[i]]).item()
+
+                results[int(ids_lang[[i]])] = {
+                    "source_language": src_lang[i],
+                    "mt_score": mt_result,
+                    "disfluent_score": d_result,
+                }
+
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
 
 class COMETRefScore:
@@ -146,14 +250,34 @@ class COMETRefScore:
         self.comet = evaluate.load("comet", model="wmt21-comet-mqm")
 
     def get_scores(
-        self, references: Series, predictions: Series, sources: Series
-    ) -> list:
-        scores = self.comet.compute(
-            predictions=predictions,
-            references=references,
-            sources=sources,
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"COMET_Ref_{input_fp}"
+        sentence_ids = np.array(cat_data["id"])
+        src_langs = list(cat_data["lang_tag"])
+
+        mt_scores = self.comet.compute(
+            predictions=cat_data["mt_sent"],
+            references=cat_data["eng_sent"],
+            sources=cat_data["src_sent"],
         )
-        return scores["scores"]
+        d_scores = self.comet.compute(
+            predictions=cat_data["pert_sent"],
+            references=cat_data["eng_sent"],
+            sources=cat_data["src_sent"],
+        )
+
+        results = {}
+
+        for i in range(len(mt_scores["scores"])):
+            results[int(sentence_ids[[i]])] = {
+                "source_language": src_langs[i],
+                "mt_score": mt_scores["scores"][i],
+                "disfluent_score": d_scores["scores"][i],
+            }
+
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
 
 class COMETQEScore:
@@ -163,9 +287,32 @@ class COMETQEScore:
         self.comet = evaluate.load("comet", model="wmt21-comet-qe-mqm")
 
     def get_scores(
-        self, references: Series, predictions: Series, sources: Series
-    ) -> list:
-        scores = self.comet.compute(
-            predictions=predictions, references=references, sources=sources
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"COMET_QE_{input_fp}"
+        sentence_ids = np.array(cat_data["id"])
+        src_langs = list(cat_data["lang_tag"])
+
+        # COMET-QE still requires the "references" argument, seemingly because it
+        # uses the same interface as COMET-Ref, but with the model swapped out.
+        # To avoid using the actual reference texts, the translation is passed instead
+        mt_scores = self.comet.compute(
+            predictions=cat_data["mt_sent"],
+            references=cat_data["mt_sent"],
+            sources=cat_data["src_sent"],
         )
-        return scores["scores"]
+        d_scores = self.comet.compute(
+            predictions=cat_data["pert_sent"],
+            references=cat_data["pert_sent"],
+            sources=cat_data["src_sent"],
+        )
+
+        results = {}
+        for i in range(len(mt_scores["scores"])):
+            results[int(sentence_ids[[i]])] = {
+                "source_language": src_langs[i],
+                "mt_score": mt_scores["scores"][i],
+                "disfluent_score": d_scores["scores"][i],
+            }
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
