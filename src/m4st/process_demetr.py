@@ -11,6 +11,7 @@ import pandas as pd
 from m4st.metrics import (
     BLASERQEScore,
     BLASERRefScore,
+    ChrFScore,
     COMETQEScore,
     COMETRefScore,
     SacreBLEUScore,
@@ -57,6 +58,10 @@ class ProcessDEMETR:
             self.comet_ref = COMETRefScore()
         if "COMET_qe" in self.metrics_to_use:
             self.comet_qe = COMETQEScore()
+        if "ChrF" in self.metrics_to_use:
+            self.chrf = ChrFScore(word_order=1)
+        if "ChrF2" in self.metrics_to_use:
+            self.chrf2 = ChrFScore(word_order=2)
 
         print(f"Using metrics {self.metrics_to_use}")
 
@@ -114,6 +119,12 @@ class ProcessDEMETR:
             elif metric == "SacreBLEU":
                 mt_results[:, j] = self.sacre_bleu.get_scores(ref_txts, mt_txts)
                 dis_results[:, j] = self.sacre_bleu.get_scores(ref_txts, dfluent_txts)
+            elif metric == "ChrF":
+                mt_results[:, j] = self.chrf.get_scores(ref_txts, mt_txts)
+                dis_results[:, j] = self.chrf.get_scores(ref_txts, dfluent_txts)
+            elif metric == "ChrF2":
+                mt_results[:, j] = self.chrf2.get_scores(ref_txts, mt_txts)
+                dis_results[:, j] = self.chrf2.get_scores(ref_txts, dfluent_txts)
             else:
                 print(f"Unknown metric {metric}")
 
