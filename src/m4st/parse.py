@@ -19,6 +19,10 @@ class TranscriptParser:
 
     def __init__(self):
         self.lines = []
+        self.timestamps = []
+        # Keep track from which file prefix the line has come.
+        # This makes downstream processing easier.
+        self.line_files = []
 
     @classmethod
     def from_folder(cls, folder_path: str):
@@ -29,17 +33,29 @@ class TranscriptParser:
         ):
             with open(file_path) as file:
                 data = file.read()
-                parser.parse_transcription(data)
+                parser.parse_transcription(data, file_prefix=file_path[-8:-4])
 
         return parser
 
-    def parse_line(self, line: str):
+    @classmethod
+    def from_file(cls, file_path: str):
+        parser = cls()
+        with open(file_path) as file:
+            data = file.read()
+            parser.parse_transcription(data, file_prefix=file_path[-8:-4])
+
+        return parser
+
+    def parse_line(self, line: str, file_prefix=None):
         # Match lines with participant utterances
         match = re.match(r"\*(\w):\s+(.*)", line)
         if match:
             participant, text = match.groups()
             # Remove timestamps (e.g., •50770_51060•) from the text
             # And other artefacts
+
+            timestamp = re.search(r"\x15\d+_\d+\x15", text)
+
             clean_text = re.sub(r"\x15\d+_\d+\x15", "", text).strip()
             clean_text = re.sub(r"&=\S+", "", clean_text).strip()
             clean_text = re.sub(r"&+\S+", "", clean_text).strip()
@@ -50,8 +66,16 @@ class TranscriptParser:
                 return
 
             self.lines.append(clean_text)
+            self.line_files.append(file_prefix)
 
-    def parse_transcription(self, data: str):
+            # Occasionally, the line will not have a timestamp, so
+            # handle this case without regex complaining.
+            if timestamp is not None:
+                self.timestamps.append(timestamp.group()[1:-1])
+            else:
+                self.timestamps.append(None)
+
+    def parse_transcription(self, data: str, file_prefix=None):
         lines = data.split("\n")
         for line in lines:
             if line in ["@Begin", "@UTF8", "@End"]:
@@ -59,4 +83,4 @@ class TranscriptParser:
                 pass
             elif line.startswith("*"):
                 # Participant line
-                self.parse_line(line)
+                self.parse_line(line, file_prefix=file_prefix)
