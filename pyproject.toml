@@ -42,6 +42,8 @@ dependencies = [
     "torchvision>=0.15.2",
     "unbabel-comet==2.2.3",
     "librosa>=0.10.2.post1",
+    "sentencepiece",
+    "transformers"
 ]
 
 [project.optional-dependencies]
