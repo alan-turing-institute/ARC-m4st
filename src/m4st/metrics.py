@@ -5,6 +5,32 @@ from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 
 
+class ChrFScore:
+    """Applies ChrF/++ from the evaluate library.
+    When word_order=0 (default) computes original ChrF metric without including word
+    n-grams. When word_order=2, computes ChrF++. The DEMETR paper refers to ChrF++
+    as ChrF2.For more details see https://huggingface.co/spaces/evaluate-metric/chrf"""
+
+    def __init__(self, word_order: int = 0) -> None:
+        self.chrf = evaluate.load("chrf")
+        self.word_order = word_order
+
+    def get_scores(self, references: Series, predictions: Series) -> list:
+        results = []
+
+        for index, ref_txt in references.items():
+            mt_txt = predictions[index]
+            score = self.chrf.compute(
+                predictions=[mt_txt],
+                references=[[ref_txt]],
+                word_order=self.word_order,
+                eps_smoothing=True,
+            )
+            results.append(score["score"])
+
+        return results
+
+
 class SacreBLEUScore:
     """Applies SacreBLEU from the evaluate library."""
 
