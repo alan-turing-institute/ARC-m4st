@@ -17,26 +17,34 @@ language_iso_to_name = {
 
 class TranslationModel(ABC):
     @abstractmethod
-    def __call__(self, text: str, source_lang_iso: str, target_lang_iso: str):
+    def __call__(self, text: str):
         pass
 
 
 class T5TranslateModel(TranslationModel):
-    def __init__(self, model_tag: str = "google-t5/t5-small"):
+    def __init__(
+        self,
+        source_lang_iso: str,
+        target_lang_iso: str,
+        model_tag: str = "google-t5/t5-small",
+    ):
         self.model = T5ForConditionalGeneration.from_pretrained(model_tag)
         self.tokenizer = T5Tokenizer.from_pretrained(model_tag)
 
-        self.supported_languages = ["eng", "deu", "fra"]
+        self.supported_languages: list[str] = ["eng", "deu", "fra"]
 
-    def __call__(self, text: str, source_lang_iso: str, target_lang_iso: str):
         assert target_lang_iso in self.supported_languages, f"This model \
 only supports {self.supported_languages}, but got target {target_lang_iso}."
         assert source_lang_iso in self.supported_languages, f"This model \
 only supports {self.supported_languages}, but got source {source_lang_iso}."
 
+        self.source_lang_iso: str = source_lang_iso
+        self.target_lang_iso: str = target_lang_iso
+
+    def __call__(self, text: str):
         source_lang_name, target_lang_name = (
-            language_iso_to_name[source_lang_iso],
-            language_iso_to_name[target_lang_iso],
+            language_iso_to_name[self.source_lang_iso],
+            language_iso_to_name[self.target_lang_iso],
         )
         model_input_text = f"translate {source_lang_name} to {target_lang_name}: {text}"
         model_input_tokens = self.tokenizer(
@@ -48,13 +56,18 @@ only supports {self.supported_languages}, but got source {source_lang_iso}."
 
 
 class OllamaTranslateModel(TranslationModel):
-    def __init__(self, model_tag: str = "llama3.2"):
+    def __init__(
+        self, source_lang_iso: str, target_lang_iso: str, model_tag: str = "llama3.2"
+    ):
         self.model_tag = model_tag
 
-    def __call__(self, text: str, source_lang_iso: str, target_lang_iso: str):
+        self.source_lang_iso: str = source_lang_iso
+        self.target_lang_iso: str = target_lang_iso
+
+    def __call__(self, text: str):
         source_lang_name, target_lang_name = (
-            language_iso_to_name[source_lang_iso],
-            language_iso_to_name[target_lang_iso],
+            language_iso_to_name[self.source_lang_iso],
+            language_iso_to_name[self.target_lang_iso],
         )
         prompt = f"""
             Please translate the following sentence from {source_lang_name}\

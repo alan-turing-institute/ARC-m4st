@@ -82,9 +82,8 @@ class CallhomePipeline:
             }
 
             # Translate the text snippet
-            # TODO Check translation model makes sense
             if self.translation_model is not None:
-                translated_text = self.translation_model.translate(snippet)
+                translated_text = self.translation_model(snippet)
                 output_dict["translated_text"] = translated_text
 
             if self.audio_folder is not None:
