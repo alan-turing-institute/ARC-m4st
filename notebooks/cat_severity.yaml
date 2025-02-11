@@ -13,11 +13,11 @@
 13: minor
 14: minor
 15: minor
-16: major # Actually minor-major but go with worst class
+16: minor # Minor with some major perturbations
 17: major
 18: major
 19: major
-20: major # Actually minor-major but go with worst class
+20: minor # Minor with some major perturbations
 21: critical
 22: critical
 23: critical
