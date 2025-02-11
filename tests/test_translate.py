@@ -4,8 +4,8 @@ eng_text = "Hi, my name is Bob."
 
 
 def test_t5():
-    t5 = T5TranslateModel()
-    translated_text_t5 = t5(eng_text, source_lang_iso="eng", target_lang_iso="fra")
+    t5 = T5TranslateModel("eng", "fra")
+    translated_text_t5 = t5(eng_text)
     print(translated_text_t5)
 
 
