@@ -75,7 +75,7 @@ class ChrFScore(Metric):
             json.dump(results, file_to_write)
 
 
-class BleuScore:
+class BleuScore(Metric):
     """Applies SacreBleu from the evaluate library."""
 
     def __init__(self) -> None:
@@ -110,7 +110,7 @@ class BleuScore:
             json.dump(results, file_to_write)
 
 
-class BLASERRefScore:
+class BLASERRefScore(Metric):
     """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
     def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
@@ -181,7 +181,7 @@ class BLASERRefScore:
             json.dump(results, file_to_write)
 
 
-class BLASERQEScore:
+class BLASERQEScore(Metric):
     """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
     library."""
 
@@ -243,11 +243,11 @@ class BLASERQEScore:
             json.dump(results, file_to_write)
 
 
-class COMETRefScore:
+class COMETRefScore(Metric):
     """Applies COMET reference-based metric from the evaluate library."""
 
-    def __init__(self) -> None:
-        self.comet = evaluate.load("comet", model="wmt21-comet-mqm")
+    def __init__(self, model: str = "wmt21-comet-mqm") -> None:
+        self.comet = evaluate.load("comet", model)
 
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
@@ -280,11 +280,11 @@ class COMETRefScore:
             json.dump(results, file_to_write)
 
 
-class COMETQEScore:
+class COMETQEScore(Metric):
     """Applies COMET QE metric from the evaluate library."""
 
-    def __init__(self) -> None:
-        self.comet = evaluate.load("comet", model="wmt21-comet-qe-mqm")
+    def __init__(self, model: str = "wmt21-comet-qe-mqm") -> None:
+        self.comet = evaluate.load("comet", model)
 
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
