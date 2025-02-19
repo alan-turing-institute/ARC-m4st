@@ -10,7 +10,7 @@ import pandas as pd
 from m4st.metrics import (
     BLASERQEScore,
     BLASERRefScore,
-    BleuScore,
+    BLEUScore,
     ChrFScore,
     COMETQEScore,
     COMETRefScore,
@@ -18,6 +18,18 @@ from m4st.metrics import (
 
 
 class ProcessDEMETR:
+    """Run the specified metrics over the DEMETR dataset from
+    https://github.com/marzenakrp/demetr.
+
+    output_dir --       the directory for storing output JSON files. One JSON file will
+                        be produced for each DEMETR category, for each metric.
+    demetr_root --      root directory for the DEMETR dataset. This can be downloaded
+                        from https://github.com/marzenakrp/demetr. The argument should
+                        point to the directory which contains the input JSON files.
+    metrics_to_use --   list of metrics to run. Must be one or more of COMET_ref,
+                        COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2.
+    """
+
     def __init__(
         self,
         output_dir: os.PathLike | str,
@@ -36,8 +48,8 @@ class ProcessDEMETR:
     def setup_metrics(self) -> None:
         metrics = []
 
-        if "Bleu" in self.metrics_to_use:
-            metrics.append(BleuScore())
+        if "BLEU" in self.metrics_to_use:
+            metrics.append(BLEUScore())
         if "BLASER_ref" in self.metrics_to_use:
             metrics.append(BLASERRefScore())
         if "BLASER_qe" in self.metrics_to_use:
@@ -69,6 +81,13 @@ class ProcessDEMETR:
         self,
         cats_to_process: list | None = None,
     ) -> pd.DataFrame:
+        """Iterates over the input files, processing each category in turn.
+
+        cats_to_process -- list of DEMETR categories to process. These are numbered
+                            1 to 35, and can be found in the DEMETR paper
+                            (https://arxiv.org/abs/2210.13746). Defaults to running
+                            over all categories.
+        """
         if cats_to_process is None:
             cats_to_process = []
 

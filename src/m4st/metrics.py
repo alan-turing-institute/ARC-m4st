@@ -75,7 +75,7 @@ class ChrFScore(Metric):
             json.dump(results, file_to_write)
 
 
-class BleuScore(Metric):
+class BLEUScore(Metric):
     """Applies SacreBleu from the evaluate library."""
 
     def __init__(self) -> None:
@@ -84,7 +84,7 @@ class BleuScore(Metric):
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
-        output_file = f"Bleu_{input_fp}"
+        output_file = f"BLEU_{input_fp}"
         ref_txts = cat_data["eng_sent"]  # Human translation
         mt_txts = cat_data["mt_sent"]  # Original machine translation
         dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation

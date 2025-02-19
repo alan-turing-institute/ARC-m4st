@@ -44,12 +44,12 @@ if __name__ == "__main__":
             "COMET_qe",
             "BLASER_ref",
             "BLASER_qe",
-            "Bleu",
+            "BLEU",
             "ChrF",
             "ChrF2",
         ],
         help="Metrics to use. Must be one or more \
-            of COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, Bleu, ChrF, ChrF2. \
+            of COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2. \
             Defaults to all.",
     )
     parser.add_argument(
