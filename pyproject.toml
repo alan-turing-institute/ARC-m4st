@@ -41,6 +41,7 @@ dependencies = [
     "torch==2.0.1",
     "torchvision>=0.15.2",
     "unbabel-comet==2.2.3",
+    "pyyaml>=6.0.2",
 ]
 
 [project.optional-dependencies]
