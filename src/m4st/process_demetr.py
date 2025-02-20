@@ -21,13 +21,20 @@ class ProcessDEMETR:
     """Run the specified metrics over the DEMETR dataset from
     https://github.com/marzenakrp/demetr.
 
-    output_dir --       the directory for storing output JSON files. One JSON file will
-                        be produced for each DEMETR category, for each metric.
-    demetr_root --      root directory for the DEMETR dataset. This can be downloaded
-                        from https://github.com/marzenakrp/demetr. The argument should
-                        point to the directory which contains the input JSON files.
-    metrics_to_use --   list of metrics to run. Must be one or more of COMET_ref,
-                        COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2.
+    output_dir --               the directory for storing output JSON files. One JSON
+                                file will be produced for each DEMETR category, for each
+                                metric.
+    demetr_root --              root directory for the DEMETR dataset. This can be
+                                downloaded from https://github.com/marzenakrp/demetr.
+                                The argument should point to the directory containing
+                                the input JSON files.
+    metrics_to_use --           list of metrics to run. Must be one or more of
+                                COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF,
+                                ChrF2.
+    blaser_lang_code_config -- config YAML mapping DEMETR language codes to SONAR/BLASER
+                                language codes. e.g. DEMETR may specify source language
+                                as "french" which requires the code "fra_Latn" for SONAR
+                                embedding generation.
     """
 
     def __init__(
@@ -35,25 +42,26 @@ class ProcessDEMETR:
         output_dir: os.PathLike | str,
         demetr_root: os.PathLike | str,
         metrics_to_use: list,
+        blaser_lang_code_config: os.PathLike | str,
     ) -> None:
         self.output_dir = output_dir
         self.demetr_root = demetr_root
         self.metrics_to_use = metrics_to_use
 
-        self.setup_metrics()
+        self.setup_metrics(blaser_lang_code_config=blaser_lang_code_config)
 
         print(f"Using metrics {self.metrics_to_use}")
 
     @typing.no_type_check
-    def setup_metrics(self) -> None:
+    def setup_metrics(self, blaser_lang_code_config: str | os.PathLike) -> None:
         metrics = []
 
         if "BLEU" in self.metrics_to_use:
             metrics.append(BLEUScore())
         if "BLASER_ref" in self.metrics_to_use:
-            metrics.append(BLASERRefScore())
+            metrics.append(BLASERRefScore(lang_code_config=blaser_lang_code_config))
         if "BLASER_qe" in self.metrics_to_use:
-            metrics.append(BLASERQEScore())
+            metrics.append(BLASERQEScore(lang_code_config=blaser_lang_code_config))
         if "COMET_ref" in self.metrics_to_use:
             metrics.append(COMETRefScore())
         if "COMET_qe" in self.metrics_to_use:

@@ -7,20 +7,7 @@ import numpy as np
 from pandas import DataFrame
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
-
-# Conversion from DEMETR language tag to SONAR language code
-blaser_lang_conversion = {
-    "chinese_simple": "zho_Hans",  # Hans for Simplified script
-    "czech": "ces_Latn",
-    "french": "fra_Latn",
-    "german": "deu_Latn",
-    "hindi": "hin_Deva",
-    "italian": "ita_Latn",
-    "japanese": "jpn_Jpan",
-    "polish": "pol_Latn",
-    "russian": "rus_Cyrl",
-    "spanish": "spa_Latn",
-}
+from yaml import YAMLError, safe_load
 
 
 class Metric(ABC):
@@ -120,7 +107,11 @@ class BLEUScore(Metric):
 class BLASERRefScore(Metric):
     """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
-    def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
+    def __init__(
+        self,
+        lang_code_config: str | os.PathLike,
+        ref_lang_code: str = "eng_Latn",
+    ) -> None:
         self.blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
             encoder="text_sonar_basic_encoder", tokenizer="text_sonar_basic_encoder"
@@ -128,6 +119,17 @@ class BLASERRefScore(Metric):
         # Code defining the target language
         # Defaults to English
         self.ref_lang_code = ref_lang_code
+
+        # Source language code must be provided to generate SONAR embeddings
+        # If a config is provided, it will be used to map language codes in the
+        # dataset to SONAR-recognised codes
+        if lang_code_config:
+            with open(lang_code_config) as stream:
+                try:
+                    lang_code_mapping = safe_load(stream)
+                except YAMLError as exc:
+                    print(exc)
+            self.lang_code_mapping = lang_code_mapping
 
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
@@ -139,7 +141,10 @@ class BLASERRefScore(Metric):
         src_txts = cat_data["src_sent"]  # Source (original) text
         src_langs = cat_data["lang_tag"]  # Source language
         sentence_ids = cat_data["id"]
-        source_lang_codes = src_langs.replace(blaser_lang_conversion)
+        if self.lang_code_mapping:
+            source_lang_codes = src_langs.replace(self.lang_code_mapping)
+        else:
+            source_lang_codes = src_langs
         langs = np.unique(source_lang_codes)
 
         results = {}
@@ -192,7 +197,9 @@ class BLASERQEScore(Metric):
     """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
     library."""
 
-    def __init__(self, ref_lang_code: str = "eng_Latn") -> None:
+    def __init__(
+        self, lang_code_config: str | os.PathLike, ref_lang_code: str = "eng_Latn"
+    ) -> None:
         self.blaser_qe = load_blaser_model("blaser_2_0_qe").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
             encoder="text_sonar_basic_encoder", tokenizer="text_sonar_basic_encoder"
@@ -200,6 +207,17 @@ class BLASERQEScore(Metric):
         # Code defining the target language
         # Defaults to English
         self.ref_lang_code = ref_lang_code
+
+        # Source language code must be provided to generate SONAR embeddings
+        # If a config is provided, it will be used to map language codes in the
+        # dataset to SONAR-recognised codes
+        if lang_code_config:
+            with open(lang_code_config) as stream:
+                try:
+                    lang_code_mapping = safe_load(stream)
+                except YAMLError as exc:
+                    print(exc)
+            self.lang_code_mapping = lang_code_mapping
 
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
@@ -210,7 +228,10 @@ class BLASERQEScore(Metric):
         src_txts = cat_data["src_sent"]  # Source (original) text
         src_langs = cat_data["lang_tag"]  # Source language
         sentence_ids = cat_data["id"]
-        source_lang_codes = src_langs.replace(blaser_lang_conversion)
+        if self.lang_code_mapping:
+            source_lang_codes = src_langs.replace(self.lang_code_mapping)
+        else:
+            source_lang_codes = src_langs
         langs = np.unique(source_lang_codes)
 
         results = {}
@@ -322,4 +343,5 @@ class COMETQEScore(Metric):
                 "disfluent_score": d_scores["scores"][i],
             }
         with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
             json.dump(results, file_to_write)
