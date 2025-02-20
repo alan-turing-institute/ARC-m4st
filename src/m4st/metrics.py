@@ -22,6 +22,7 @@ class Metric(ABC):
         output_path --  Directory for storing output JSON files. There will be one
                         output file for each DEMETR category, for each metric.
         input_fp --     Path to input JSON file from the DEMETR dataset.
+        ghfghgfhj
         """
 
 
