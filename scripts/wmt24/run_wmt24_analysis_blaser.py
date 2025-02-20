@@ -35,7 +35,7 @@ def main(args: dict) -> None:
     # Need separate pipelines for generating speech and text embeddings
     blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
 
-    device = "gpu" if torch.cuda.is_available() else "cpu"
+    device = "cuda" if torch.cuda.is_available() else "cpu"
 
     speech_encoder_model = load_sonar_speech_model(
         "sonar_speech_encoder_eng", device=device
@@ -87,7 +87,7 @@ def main(args: dict) -> None:
             src_texts.append(sentences[speech_src_file[0]])
 
         # Get corresponding reference sentence
-        ref_sent_file = f"{refs_path}/{from_lang}-{to_lang}.RefA.txt"
+        ref_sent_file = f"{refs_path}/{from_lang}-{to_lang}.refA.txt"
         with open(ref_sent_file) as input_file:
             sentences = input_file.readlines()
             ref_texts.append(sentences[speech_src_file[0]])
