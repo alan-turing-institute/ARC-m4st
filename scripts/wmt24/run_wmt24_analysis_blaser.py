@@ -53,6 +53,7 @@ def main(args: dict) -> None:
 
     au_src_results = []
     txt_src_results = []
+    mt_sys_names = []
 
     lang_pair = os.path.basename(src_doc)[:5].split("-")
     from_lang = lang_pair[0]  # Language translating from
@@ -98,6 +99,7 @@ def main(args: dict) -> None:
         mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
         mt_sent_files = os.scandir(mt_sent_dir)
         for mt_sent_file in mt_sent_files:
+            mt_sys_names.append(os.path.basename(mt_sent_file.name))
             with open(mt_sent_file) as input_file:
                 sentences = input_file.readlines()
                 mt_texts_sent.append(sentences[speech_src_file[0]])
@@ -115,13 +117,13 @@ def main(args: dict) -> None:
 
     embed_sets = zip(audio_src_embs, src_embs, ref_embs, strict=False)
 
+    print("Processing machine translations...")
+
     # There are multiple sets of machine translations
     # For each set of source, translation we apply the metric n times, once for each
     # translation model (n = ~25, seems to vary slightly by language)
     # mt_texts has shape (num_sentences, num_translation_models)
     for mt_set in mt_texts:  # For each sentence
-        print("Processing machine translations...")
-
         # Get embeddings for all translated versions of this sentence
         mt_embs = t2vec_model.predict(mt_set, source_lang=source_lang)
 
@@ -138,7 +140,11 @@ def main(args: dict) -> None:
                 txt_src_results.append(result_txt)
 
     results = pd.DataFrame(
-        {"audio_source": au_src_results, "text_source": txt_src_results}
+        {
+            "mt_system": mt_sys_names,
+            "audio_source": au_src_results,
+            "text_source": txt_src_results,
+        }
     )
     results.to_csv(output_file, index=False)
 
