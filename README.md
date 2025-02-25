@@ -23,9 +23,9 @@ python -m pip install .
 
 ## CallHome Dataset
 
-Go [https://ca.talkbank.org/access/CallHome](here), select the conversation language, create account, then you can download the "media folder". There you can find the .cha files, which contain the transcriptions.
+Go [https://ca.talkbank.org/access/CallHome](here), select the conversation language, create account, then you can download the "media folder". There you can find the .cha files, which contain the transcriptions. You will need to pre-process this data in combination with the Callhome translations dataset, which includes part of the pre-processing scripts. The README under ./scripts/callhome of this repo contains more information.
 
-To load the transcriptions as a bag of sentences, use `m4st.parse.TranscriptParser.from_folder` to load all conversation lines. This class does not group them by participant, or conversation - it just loads every line as an entry to a list (+ some pre-processing).
+To load the transcripts as an iterator, use the m4st.callhome.pipeline.CallhomePipeline class after pre-processing the data.
 
 ## Ollama
 

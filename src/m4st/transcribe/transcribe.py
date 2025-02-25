@@ -41,9 +41,3 @@ class WhisperTranscription(TranscriptionModel):
         return self.pipe(str(audio_file), generate_kwargs={"language": self.language})[
             "text"
         ]
-
-
-if __name__ == "__main__":
-    file_path = Path("e46f7c492d9f46509e001a55faf30f08.mp3")
-    whisper = WhisperTranscription("English")
-    print(whisper(file_path))

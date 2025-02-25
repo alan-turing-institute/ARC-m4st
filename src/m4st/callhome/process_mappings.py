@@ -4,11 +4,11 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def mapping_name_to_filename(mname):
+def mapping_name_to_filename(mname: str):
     return mname[3:] + ".cha"
 
 
-def process_line_ids(maybe_lines):
+def process_line_ids(maybe_lines: str):
     return [int(num) for num in maybe_lines.split("_")]
 
 
@@ -31,12 +31,25 @@ def reconcile_timestamps(timestamps: list[str]):
     return "_".join([str(min_min), str(max_max)])
 
 
-def process(cha_root_dir, mapping_file, eng_file) -> pd.DataFrame:
+def process(cha_root_dir: str, mapping_file: str, eng_file: str) -> pd.DataFrame:
     r"""
     Loads a DataFrame of Spanish utterances alongside their English translations.
 
     This function expects that the dataset has been pre-processed, so that the
     lines in the mapping file match to the correct lines in the transcription files.
+
+    Args:
+        cha_root_dir (str): Path to folder containing the .cha transcript files.
+
+        mapping_file (str): Path to the mapping directory of the fisher dataset
+            folder.
+
+        eng_file (str): Path to the 'ldc' directory of the fisher dataset folder,
+            which contains the English translations.
+
+    Returns
+        DataFrame containing the English-Spanish translations, and metadata such
+        as timestamps.
     """
     with open(eng_file) as eng_in:
         eng_lines = [line[:-1] for line in eng_in.readlines()]
@@ -107,29 +120,3 @@ def process(cha_root_dir, mapping_file, eng_file) -> pd.DataFrame:
         spa_eng_dict["prefix"].append(fname)
 
     return pd.DataFrame.from_dict(spa_eng_dict)
-
-
-if __name__ == "__main__":
-    r"""
-    Pairs English callhome translations with Spanish dialogue lines,
-    ignoring extra English content.
-    """
-    cha_root_dir = (
-        "/Users/bvodenicharski/repos/ARC-m4st/experiments/compare_text_content/spatext"
-    )
-    mapping_root = (
-        "/Users/bvodenicharski/repos/ARC-m4st/data/fisher_ch_spa-eng/data/mapping"
-    )
-    eng_file_root = (
-        "/Users/bvodenicharski/repos/ARC-m4st/data/fisher_ch_spa-eng/data/corpus/ldc"
-    )
-
-    for callhome_partition in [
-        "callhome_devtest",
-        "callhome_evltest",
-        "callhome_train",
-    ]:
-        print(f"Processing {callhome_partition}")
-        mapping_file = os.path.join(mapping_root, callhome_partition)
-        eng_file = os.path.join(eng_file_root, callhome_partition + ".en")
-        process(cha_root_dir, mapping_file, eng_file)

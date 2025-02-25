@@ -26,17 +26,21 @@ class T5TranslateModel(TranslationModel):
         self,
         source_lang_iso: str,
         target_lang_iso: str,
-        model_tag: str = "google-t5/t5-small",
     ):
+        model_tag = "google-t5/t5-small"
         self.model = T5ForConditionalGeneration.from_pretrained(model_tag)
         self.tokenizer = T5Tokenizer.from_pretrained(model_tag)
 
         self.supported_languages: list[str] = ["eng", "deu", "fra"]
 
-        assert target_lang_iso in self.supported_languages, f"This model \
-only supports {self.supported_languages}, but got target {target_lang_iso}."
-        assert source_lang_iso in self.supported_languages, f"This model \
-only supports {self.supported_languages}, but got source {source_lang_iso}."
+        if target_lang_iso not in self.supported_languages:
+            err_msg = f"This model only supports {self.supported_languages}, \
+but got target {target_lang_iso}."
+            raise Exception(err_msg)
+        if source_lang_iso not in self.supported_languages:
+            err_msg = f"This model only supports {self.supported_languages}, \
+but got source {source_lang_iso}."
+            raise Exception(err_msg)
 
         self.source_lang_iso: str = source_lang_iso
         self.target_lang_iso: str = target_lang_iso
@@ -50,7 +54,9 @@ only supports {self.supported_languages}, but got source {source_lang_iso}."
         model_input_tokens = self.tokenizer(
             model_input_text, return_tensors="pt"
         ).input_ids
-        model_output_tokens = self.model.generate(model_input_tokens)
+        model_output_tokens = self.model.generate(
+            model_input_tokens, max_new_tokens=210
+        )
 
         return self.tokenizer.decode(model_output_tokens[0], skip_special_tokens=True)
 

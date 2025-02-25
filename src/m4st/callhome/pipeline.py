@@ -82,17 +82,14 @@ class CallhomePipeline:
             dict: A dictionary containing the original text snippet, translated text,
                   transcribed audio, and optionally the saved audio snippet file path.
         """
-        # NOTE Iterating through a DataFrame is not ideal, but doing it anyway for
-        # ease, since the neural networks will be the expensive operation, rather
-        # than df iteration.
         for line_idx in tqdm(range(len(self.spa_eng_df))):
             row = self.spa_eng_df.iloc[line_idx]
             timestamp = row["timestamp"]
 
-            assert (
-                timestamp is not None
-            ), "If this error occurs, something has gone wrong during pre-processing \
-                Callhome."
+            if timestamp is None:
+                err_msg = "If this error occurs, something has gone wrong during \
+pre-processing Callhome."
+                raise Exception(err_msg)
 
             snippet = row["spa"]
             eng_translation = row["eng"]
@@ -131,35 +128,3 @@ class CallhomePipeline:
                     output_dict["audio_snippet_id"] = f"{file_id}.mp3"
 
             yield output_dict
-
-
-if __name__ == "__main__":
-    # Some test code
-    text_folder = "/Users/bvodenicharski/repos/ARC-m4st/data/spa_processed"
-    audio_folder = None  # (
-    #    "/Users/bvodenicharski/repos/ARC-m4st/experiments/callhome/data/eng/audio"
-    # )
-    eng_folder = (
-        "/Users/bvodenicharski/repos/ARC-m4st/data/fisher_ch_spa-eng/data/corpus/ldc"
-    )
-    mapping_folder = (
-        "/Users/bvodenicharski/repos/ARC-m4st/data/fisher_ch_spa-eng/data/mapping"
-    )
-
-    translation_model = None
-    transcription_model = None
-    audio_snippet_dir = None  # "./audio_test_out"
-
-    pipe = CallhomePipeline(
-        text_folder,
-        eng_folder,
-        mapping_folder,
-        audio_folder,
-        translation_model,
-        transcription_model,
-        audio_snippet_dir=audio_snippet_dir,
-    )
-
-    pipe_iter = pipe.__iter__()
-    print(next(pipe_iter))
-    print(next(pipe_iter))
