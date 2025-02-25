@@ -7,14 +7,7 @@ import typing
 
 import pandas as pd
 
-from m4st.metrics import (
-    BLASERQEScore,
-    BLASERRefScore,
-    BLEUScore,
-    ChrFScore,
-    COMETQEScore,
-    COMETRefScore,
-)
+from m4st.metrics import BLASERQEScore, BLASERRefScore, BLEUScore, ChrFScore, COMETScore
 
 
 class ProcessDEMETR:
@@ -29,12 +22,13 @@ class ProcessDEMETR:
                                 The argument should point to the directory containing
                                 the input JSON files.
     metrics_to_use --           list of metrics to run. Must be one or more of
-                                COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF,
-                                ChrF2.
+                                COMET, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2.
     blaser_lang_code_config -- config YAML mapping DEMETR language codes to SONAR/BLASER
                                 language codes. e.g. DEMETR may specify source language
                                 as "french" which requires the code "fra_Latn" for SONAR
                                 embedding generation.
+    comet_model_str --          COMET model to use, e.g. wmt21-comet-mqm (default),
+                                Unbabel/XCOMET-XL.
     """
 
     def __init__(
@@ -43,29 +37,32 @@ class ProcessDEMETR:
         demetr_root: os.PathLike | str,
         metrics_to_use: list,
         blaser_lang_code_config: os.PathLike | str,
+        comet_model_str: str,
     ) -> None:
         self.output_dir = output_dir
         self.demetr_root = demetr_root
         self.metrics_to_use = metrics_to_use
+        self.blaser_lang_code_config = blaser_lang_code_config
+        self.comet_model_str = comet_model_str
 
-        self.setup_metrics(blaser_lang_code_config=blaser_lang_code_config)
+        self.setup_metrics()
 
         print(f"Using metrics {self.metrics_to_use}")
 
     @typing.no_type_check
-    def setup_metrics(self, blaser_lang_code_config: str | os.PathLike) -> None:
+    def setup_metrics(self) -> None:
         metrics = []
 
         if "BLEU" in self.metrics_to_use:
             metrics.append(BLEUScore())
         if "BLASER_ref" in self.metrics_to_use:
-            metrics.append(BLASERRefScore(lang_code_config=blaser_lang_code_config))
+            metrics.append(
+                BLASERRefScore(lang_code_config=self.blaser_lang_code_config)
+            )
         if "BLASER_qe" in self.metrics_to_use:
-            metrics.append(BLASERQEScore(lang_code_config=blaser_lang_code_config))
-        if "COMET_ref" in self.metrics_to_use:
-            metrics.append(COMETRefScore())
-        if "COMET_qe" in self.metrics_to_use:
-            metrics.append(COMETQEScore())
+            metrics.append(BLASERQEScore(lang_code_config=self.blaser_lang_code_config))
+        if "COMET" in self.metrics_to_use:
+            metrics.append(COMETScore(model=self.comet_model_str))
         if "ChrF" in self.metrics_to_use:
             metrics.append(ChrFScore(word_order=1))
         if "ChrF2" in self.metrics_to_use:

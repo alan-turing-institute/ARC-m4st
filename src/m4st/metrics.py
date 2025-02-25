@@ -272,16 +272,22 @@ class BLASERQEScore(Metric):
             json.dump(results, file_to_write)
 
 
-class COMETRefScore(Metric):
-    """Applies COMET reference-based metric from the evaluate library."""
+class COMETScore(Metric):
+    """Applies COMET metric using the evaluate library.
+    All COMET models require the same input footprint, including QE versions. You can
+    switch between different COMET models by providing the model argument.
+    e.g. model="wmt21-comet-qe-mqmq", model="Unbabel/XCOMET-XXL".
+    See https://huggingface.co/spaces/evaluate-metric/comet for more details.
+    """
 
     def __init__(self, model: str = "wmt21-comet-mqm") -> None:
-        self.comet = evaluate.load("comet", model)
+        self.model = model
+        self.comet = evaluate.load("comet", self.model)
 
     def get_scores(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
-        output_file = f"COMET_Ref_{input_fp}"
+        output_file = f"{self.model}_{input_fp}"
         sentence_ids = np.array(cat_data["id"])
         src_langs = list(cat_data["lang_tag"])
 
@@ -306,43 +312,4 @@ class COMETRefScore(Metric):
             }
 
         with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
-
-
-class COMETQEScore(Metric):
-    """Applies COMET QE metric from the evaluate library."""
-
-    def __init__(self, model: str = "wmt21-comet-qe-mqm") -> None:
-        self.comet = evaluate.load("comet", model)
-
-    def get_scores(
-        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        output_file = f"COMET_QE_{input_fp}"
-        sentence_ids = np.array(cat_data["id"])
-        src_langs = list(cat_data["lang_tag"])
-
-        # COMET-QE still requires the "references" argument, seemingly because it
-        # uses the same interface as COMET-Ref, but with the model swapped out.
-        # To avoid using the actual reference texts, the translation is passed instead
-        mt_scores = self.comet.compute(
-            predictions=cat_data["mt_sent"],
-            references=cat_data["mt_sent"],
-            sources=cat_data["src_sent"],
-        )
-        d_scores = self.comet.compute(
-            predictions=cat_data["pert_sent"],
-            references=cat_data["pert_sent"],
-            sources=cat_data["src_sent"],
-        )
-
-        results = {}
-        for i in range(len(mt_scores["scores"])):
-            results[int(sentence_ids[[i]])] = {
-                "source_language": src_langs[i],
-                "mt_score": mt_scores["scores"][i],
-                "disfluent_score": d_scores["scores"][i],
-            }
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
             json.dump(results, file_to_write)

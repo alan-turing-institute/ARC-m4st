@@ -14,6 +14,7 @@ def main(args: dict) -> None:
         output_dir=output_dir,
         demetr_root=args["dataset_dir"],
         blaser_lang_code_config=args["blaser_lang_config"],
+        comet_model_str=args["comet_model"],
     )
 
     print(args["cats"])
@@ -41,8 +42,7 @@ if __name__ == "__main__":
         nargs="+",
         type=str,
         default=[
-            "COMET_ref",
-            "COMET_qe",
+            "COMET",
             "BLASER_ref",
             "BLASER_qe",
             "BLEU",
@@ -66,6 +66,12 @@ if __name__ == "__main__":
         type=str,
         default="../../configs/demetr/BLASER_lang_code_conversion.yaml",
         help="YAML config file mapping DEMETR language codes to SONAR language codes.",
+    )
+    parser.add_argument(
+        "--comet-model",
+        type=str,
+        required=False,
+        help="COMET model to use.",
     )
 
     args = parser.parse_args()
