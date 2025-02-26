@@ -1,4 +1,6 @@
-from m4st.translate.model import T5TranslateModel
+import pytest
+
+from m4st.translate.model import OllamaTranslateModel, T5TranslateModel
 
 eng_text = "Hi, my name is Bob."
 
@@ -9,10 +11,10 @@ def test_t5():
     print(translated_text_t5)
 
 
-# NOTE: Ollama server must be running for this test to work, skipping it for now.
-# def test_llama32():
-#    llama32translate = OllamaTranslateModel()
-#    translated_text_llama32 = llama32translate(
-#        eng_text, source_lang_iso="eng", target_lang_iso="fra"
-#    )
-#    print(translated_text_llama32)
+@pytest.mark.skip(
+    reason="Ollama server must be set up and running, please test this locally."
+)
+def test_llama32():
+    llama32translate = OllamaTranslateModel("eng", "spa")
+    translated_text_llama32 = llama32translate(eng_text)
+    print(translated_text_llama32)
