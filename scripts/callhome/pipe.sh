@@ -12,6 +12,7 @@ SCRIPT1="./align_lines.py"
 SCRIPT2="./remove_noise_syntax.py"
 SCRIPT3="${PATH_TO_FISHER}/data/bin/strip_markup.pl"
 SCRIPT4="${PATH_TO_FISHER}/data/bin/remove_punctuation.pl"
+SCRIPT5="./remove_dialogue_delimiter.py"
 
 GET_TIMESTEPS_SCRIPT="./timestep_parsing.py"
 
@@ -22,7 +23,7 @@ mkdir -p "$OUTPUT_PROCESSED_TEXT"
 for file in "$PATH_TO_CALLHOME_TEXT"/*; do
     if [ -f "$file" ]; then
         filename=$(basename -- "$file")
-        python "$SCRIPT1" "$file" | python "$SCRIPT2" | perl "$SCRIPT3" | perl "$SCRIPT4" > "$OUTPUT_PROCESSED_TEXT/$filename"
+        python "$SCRIPT1" "$file" | python "$SCRIPT2" | perl "$SCRIPT3" | perl "$SCRIPT4" | python "$SCRIPT5" > "$OUTPUT_PROCESSED_TEXT/$filename"
         python "$SCRIPT1" "$file" | python "$GET_TIMESTEPS_SCRIPT" > "$OUTPUT_PROCESSED_TEXT/${filename}_timestamps.txt"
     fi
 done
