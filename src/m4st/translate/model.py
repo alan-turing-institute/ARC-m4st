@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
 
-from transformers import T5ForConditionalGeneration, T5Tokenizer
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import (
+    AutoModelForSeq2SeqLM,
+    AutoTokenizer,
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+)
 
 from m4st.ollama.client import generate
 
@@ -29,11 +33,7 @@ class NLLBTranslateModel(TranslationModel):
         target_lang_iso: str,
         model_tag: str = "facebook/nllb-200-distilled-600M",
     ):
-
-        self.language_iso_to_nllb = {
-                "eng" : "eng_Latn",
-                "spa" : "spa_Latn"
-        }
+        self.language_iso_to_nllb = {"eng": "eng_Latn", "spa": "spa_Latn"}
 
         self.model = AutoModelForSeq2SeqLM.from_pretrained(model_tag)
         self.tokenizer = AutoTokenizer.from_pretrained(model_tag)
@@ -55,9 +55,15 @@ class NLLBTranslateModel(TranslationModel):
         # keep in mind this is a sentence-level translation model.
         # TODO Do you explicitly set the input language?
         translated_tokens = self.model.generate(
-            **inputs, forced_bos_token_id=self.tokenizer.convert_tokens_to_ids(self.language_iso_to_nllb[self.target_lang_iso]))
+            **inputs,
+            forced_bos_token_id=self.tokenizer.convert_tokens_to_ids(
+                self.language_iso_to_nllb[self.target_lang_iso]
+            ),
+        )
 
-        return self.tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[0]
+        return self.tokenizer.batch_decode(translated_tokens, skip_special_tokens=True)[
+            0
+        ]
 
 
 class T5TranslateModel(TranslationModel):

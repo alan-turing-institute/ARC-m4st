@@ -2,7 +2,7 @@ import sys
 
 
 def main():
-    r""" 
+    r"""
     Removes the delimiter encoding which person is speaking.
     """
     # Use stdin for reading the input
