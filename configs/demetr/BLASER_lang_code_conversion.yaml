@@ -1,0 +1,12 @@
+# Converts the language codes used in the DEMETR dataset to
+# the correct language codes for use with SONAR/BLASER embeddings.
+"chinese_simple": "zho_Hans"  # Hans for Simplified Chinese script
+"czech": "ces_Latn"
+"french": "fra_Latn"
+"german": "deu_Latn"
+"hindi": "hin_Deva"
+"italian": "ita_Latn"
+"japanese": "jpn_Jpan"
+"polish": "pol_Latn"
+"russian": "rus_Cyrl"
+"spanish": "spa_Latn"
