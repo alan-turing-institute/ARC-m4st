@@ -26,6 +26,7 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
+
 dependencies = [
     "tqdm",
     "requests",
@@ -38,10 +39,13 @@ dependencies = [
     "sacrebleu>=2.4.3",
     "seaborn>=0.13.2",
     "sonar-space>=0.2.0",
-    "torch==2.0.1",
-    "torchvision>=0.15.2",
-    "unbabel-comet>=2.2.0",
-    "pyyaml>=6.0.2",
+    "torch",
+    "torchvision",
+    "unbabel-comet==2.2.3",
+    "librosa>=0.10.2.post1",
+    "sentencepiece",
+    "transformers",
+    "pydub"
 ]
 
 [project.optional-dependencies]
