@@ -7,7 +7,14 @@ import typing
 
 import pandas as pd
 
-from m4st.metrics import BLASERQEScore, BLASERRefScore, BLEUScore, ChrFScore, COMETScore
+from m4st.metrics import (
+    # BLASERQEScore,
+    # BLASERRefScore,
+    BLEUScore,
+    ChrFScore,
+    COMETScore,
+    MetricXScore,
+)
 
 
 class ProcessDEMETR:
@@ -55,14 +62,20 @@ class ProcessDEMETR:
 
         if "BLEU" in self.metrics_to_use:
             metrics.append(BLEUScore())
+        """
         if "BLASER_ref" in self.metrics_to_use:
             metrics.append(
                 BLASERRefScore(lang_code_config=self.blaser_lang_code_config)
             )
         if "BLASER_qe" in self.metrics_to_use:
             metrics.append(BLASERQEScore(lang_code_config=self.blaser_lang_code_config))
+        """
         if "COMET" in self.metrics_to_use:
             metrics.append(COMETScore(model=self.comet_model_str))
+        if "MetricX_ref" in self.metrics_to_use:
+            metrics.append(MetricXScore(qe=False))
+        if "MetricX_qe" in self.metrics_to_use:
+            metrics.append(MetricXScore(qe=True))
         if "ChrF" in self.metrics_to_use:
             metrics.append(ChrFScore(word_order=1))
         if "ChrF2" in self.metrics_to_use:

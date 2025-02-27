@@ -45,13 +45,15 @@ if __name__ == "__main__":
             "COMET",
             "BLASER_ref",
             "BLASER_qe",
+            "MetricX_ref",
+            "MetricX_qe",
             "BLEU",
             "ChrF",
             "ChrF2",
         ],
         help="Metrics to use. Must be one or more \
-            of COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2. \
-            Defaults to all.",
+            of COMET_ref, COMET_qe, BLASER_ref, BLASER_qe, MetricX_ref, MetricX_qe, \
+            BLEU, ChrF, ChrF2. Defaults to all.",
     )
     parser.add_argument(
         "--cats",
