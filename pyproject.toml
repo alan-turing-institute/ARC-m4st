@@ -45,7 +45,8 @@ dependencies = [
     "librosa>=0.10.2.post1",
     "sentencepiece",
     "transformers",
-    "pydub"
+    "pydub",
+    "metricx @ git+https://github.com/jack89roberts/metricx"
 ]
 
 [project.optional-dependencies]

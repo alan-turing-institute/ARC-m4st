@@ -4,9 +4,11 @@ from abc import ABC, abstractmethod
 
 import evaluate
 import numpy as np
+from metricx import MT5ForRegression
 from pandas import DataFrame
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
+from transformers import AutoTokenizer
 from yaml import YAMLError, safe_load
 
 
@@ -301,6 +303,50 @@ class COMETScore(Metric):
             references=cat_data["eng_sent"],
             sources=cat_data["src_sent"],
         )
+
+        results = {}
+
+        for i in range(len(mt_scores["scores"])):
+            results[int(sentence_ids[[i]])] = {
+                "source_language": src_langs[i],
+                "mt_score": mt_scores["scores"][i],
+                "disfluent_score": d_scores["scores"][i],
+            }
+
+        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
+            json.dump(results, file_to_write)
+
+
+class MetricX24Score(Metric):
+    """Applies MetricX: https://github.com/google-research/metricx"""
+
+    def __init__(
+        self,
+        model: str = "google/metricx-24-hybrid-xl-v2p6",
+        tokenizer: str = "google/mt5-xl",
+    ) -> None:
+        self.model_name = model.replace("/", "_")  # for output file paths
+        self.model = MT5ForRegression.from_pretrained(model)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer)
+
+    def compute(self, dataset): ...
+
+    def get_scores(
+        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
+    ) -> None:
+        output_file = f"{self.model_name}_{input_fp}"
+        sentence_ids = np.array(cat_data["id"])
+        src_langs = list(cat_data["lang_tag"])
+
+        mt_data = self.get_dataset(
+            cat_data, src_col="src_sent", pred_col="mt_sent", ref_col="eng_sent"
+        )
+        mt_scores = self.compute(mt_data)
+
+        d_data = self.get_dataset(
+            cat_data, src_col="src_sent", pred_col="pert_sent", ref_col="eng_sent"
+        )
+        d_scores = self.compute(d_data)
 
         results = {}
 
