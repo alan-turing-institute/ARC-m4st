@@ -15,6 +15,7 @@ def main(args: dict) -> None:
         demetr_root=args["dataset_dir"],
         blaser_lang_code_config=args["blaser_lang_config"],
         comet_model_str=args["comet_model"],
+        metricx_model_str=args["metricx_model"],
     )
 
     print(args["cats"])
@@ -74,6 +75,14 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="COMET model to use.",
+    )
+
+    parser.add_argument(
+        "--metricx-model",
+        type=str,
+        required=False,
+        help="MetricX model to use.",
+        default="google/metricx-24-hybrid-xl-v2p6",
     )
 
     args = parser.parse_args()
