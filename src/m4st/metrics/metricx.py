@@ -49,18 +49,20 @@ class MetricXScore(Metric):
     def preprocess(
         self, cat_data: DataFrame, src_col: str, pred_col: str, ref_col: str
     ) -> Dataset:
-        with tempfile.NamedTemporaryFile("a") as fp:
-            for _, row in cat_data.iterrows():
-                fp.write(
-                    json.dumps(
-                        {
-                            "source": row[src_col],
-                            "hypothesis": row[pred_col],
-                            "reference": row[ref_col],
-                        }
+        with tempfile.TemporaryDirectory() as tempdir:
+            fname = f"{tempdir}/cat_data.json"
+            with open(fname, "a") as f:
+                for _, row in cat_data.iterrows():
+                    f.write(
+                        json.dumps(
+                            {
+                                "source": row[src_col],
+                                "hypothesis": row[pred_col],
+                                "reference": row[ref_col],
+                            }
+                        )
                     )
-                )
-            return get_dataset(fp.name, self.tokenizer, self.max_input_length, self.qe)
+            return get_dataset(fname, self.tokenizer, self.max_input_length, self.qe)
 
     def compute(self, ds: Dataset) -> list[float]:
         with tempfile.TemporaryDirectory() as tempdir:
