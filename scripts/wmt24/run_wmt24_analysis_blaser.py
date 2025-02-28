@@ -37,9 +37,16 @@ def main(args: dict) -> None:
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    speech_encoder_model = load_sonar_speech_model(
-        "sonar_speech_encoder_eng", device=device
-    ).eval()
+    lang_pair = os.path.basename(src_doc)[:5].split("-")
+    from_lang = lang_pair[0]  # Language translating from
+    to_lang = lang_pair[1]  # Language translating to
+
+    if from_lang == "jpn":
+        speech_encoder = "sonar_speech_encoder_jpn"
+    elif from_lang == "en":
+        speech_encoder = "sonar_speech_encoder_eng"
+
+    speech_encoder_model = load_sonar_speech_model(speech_encoder, device=device).eval()
     text_encoder_model = load_sonar_text_encoder_model(
         "text_sonar_basic_encoder", device=device
     ).eval()
@@ -54,10 +61,6 @@ def main(args: dict) -> None:
     au_src_results = []
     txt_src_results = []
     mt_sys_names = []
-
-    lang_pair = os.path.basename(src_doc)[:5].split("-")
-    from_lang = lang_pair[0]  # Language translating from
-    to_lang = lang_pair[1]  # Language translating to
 
     output_file = os.path.join(output_dir, f"{from_lang}-{to_lang}_BLASER.csv")
 
