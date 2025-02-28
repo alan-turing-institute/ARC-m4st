@@ -67,7 +67,6 @@ class MetricXScore(Metric):
             training_args = TrainingArguments(
                 output_dir=tempdir,
                 per_device_eval_batch_size=self.batch_size,
-                use_cpu=True,
             )
             trainer = Trainer(model=self.model, args=training_args)
             predictions, _, _ = trainer.predict(test_dataset=ds["test"])
