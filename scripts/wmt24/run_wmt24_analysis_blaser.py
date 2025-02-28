@@ -41,7 +41,7 @@ def main(args: dict) -> None:
     from_lang = lang_pair[0]  # Language translating from
     to_lang = lang_pair[1]  # Language translating to
 
-    if from_lang == "jpn":
+    if from_lang == "ja":
         speech_encoder = "sonar_speech_encoder_jpn"
     elif from_lang == "en":
         speech_encoder = "sonar_speech_encoder_eng"
