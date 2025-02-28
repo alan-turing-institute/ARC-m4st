@@ -38,14 +38,15 @@ export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 cd "${PROJ}/ARC-m4st/scripts/demetr"
 python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-large-v2p6"
 python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xl-v2p6"
-python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xxl-v2p6"
 python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-large-v2p6-bfloat16"
 python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xl-v2p6-bfloat16"
-python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xxl-v2p6-bfloat16"
 
 python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-large-v2p6"
 python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-xl-v2p6"
-python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-xxl-v2p6"
 python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-large-v2p6-bfloat16"
 python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-xl-v2p6-bfloat16"
+
+python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xxl-v2p6"
+python process_demetr.py --metrics MetricX_ref --metricx-model "google/metricx-24-hybrid-xxl-v2p6-bfloat16"
+python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-xxl-v2p6"
 python process_demetr.py --metrics MetricX_qe --metricx-model "google/metricx-24-hybrid-xxl-v2p6-bfloat16"
