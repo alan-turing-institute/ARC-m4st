@@ -27,7 +27,7 @@ class MetricXScore(Metric):
         self,
         model: str = "google/metricx-24-hybrid-xl-v2p6",
         max_input_length: int = 1536,
-        batch_size: int = 1,
+        batch_size: int = 16,
         qe: bool = False,
     ) -> None:
         if model not in metricx_tokenizers:
