@@ -129,6 +129,7 @@ class ProcessDEMETR:
         # Get list of JSON files
         # Each file contains sentences for a single DEMETR category
         dataset_list = os.listdir(self.demetr_root)
+        print(f"Found {len(dataset_list)} input files")
 
         for ds in dataset_list:
             ds_cat = int(ds.split("_")[1].strip("id"))
