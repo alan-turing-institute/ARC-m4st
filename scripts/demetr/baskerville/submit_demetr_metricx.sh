@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH --account vjgo8416-spchmetrics
 #SBATCH --qos turing
-#SBATCH --job-name process_DEMETR
-#SBATCH --time 0-1:00:0
+#SBATCH --job-name process_DEMETR_MetricX
+#SBATCH --time 0-2:00:0
 #SBATCH --nodes 1
 #SBATCH --gpus 1
+#SBATCH --cpus-per-gpu 36
 #SBATCH --output /bask/projects/v/vjgo8416-spchmetrics/jr/slurm_outputs/logs/%j.out
-#SBATCH --tasks-per-node 1
-#SBATCH --mem-per-cpu 32000
 
 # Load required modules here
 module purge
