@@ -34,6 +34,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "seaborn>=0.13.2",
     "pydub",
+    "numba>0.57",
     "librosa>=0.10.2.post1",
 ]
 
@@ -59,10 +60,9 @@ blaser = [
   "sonar-space>=0.2.0",
   "fairseq2>=0.2.0",
   "filelock>=3.0.12",
-  "torch",
+  "torch==2.5.1",
   "torchvision",
   "sentencepiece",
-
 ]
 string = [
   "evaluate>=0.4.3",
