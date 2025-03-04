@@ -1,3 +1,7 @@
+"""Runs BLASER over all sources in the "speech" category, which have to be matched
+to the appropriate audio file.
+"""
+
 import argparse
 import os
 
@@ -8,6 +12,19 @@ from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 from sonar.models.sonar_speech.loader import load_sonar_speech_model
 from sonar.models.sonar_text import load_sonar_text_encoder_model
+
+map_lang = {
+    "zh": "zho_Hans",
+    "cs": "ces_Latn",
+    "de": "deu_Latn",
+    "hi": "hin_Deva",
+    "ja": "jpn_Jpan",
+    "ru": "rus_Cyrl",
+    "es": "spa_Latn",
+    "en": "eng_Latn",
+    "uk": "uk_Cyrl",
+    "is": "isl_Latn",
+}
 
 
 def main(args: dict) -> None:
@@ -68,7 +85,8 @@ def main(args: dict) -> None:
     with open(src_doc) as input_file:
         srcs_list = input_file.readlines()
 
-    source_lang = "eng_Latn" if from_lang == "en" else "jpn_Jpan"
+    from_lang_blaser = map_lang[from_lang]
+    to_lang_blaser = map_lang[to_lang]
 
     # List of (line index, path) tuples for this translation pair
     speech_sources = [(i, s) for i, s in enumerate(srcs_list) if "speech" in s]
@@ -114,9 +132,9 @@ def main(args: dict) -> None:
     print("Getting audio source embeddings...")
     audio_src_embs = s2vec_model.predict(audio_files)
     print("Getting reference embeddings...")
-    ref_embs = t2vec_model.predict(ref_texts, source_lang=source_lang)
+    ref_embs = t2vec_model.predict(ref_texts, source_lang=to_lang_blaser)
     print("Getting text source embeddings...")
-    src_embs = t2vec_model.predict(src_texts, source_lang=source_lang)
+    src_embs = t2vec_model.predict(src_texts, source_lang=from_lang_blaser)
 
     embed_sets = zip(audio_src_embs, src_embs, ref_embs, strict=False)
 
@@ -128,7 +146,7 @@ def main(args: dict) -> None:
     # mt_texts has shape (num_sentences, num_translation_models)
     for mt_set in mt_texts:  # For each sentence
         # Get embeddings for all translated versions of this sentence
-        mt_embs = t2vec_model.predict(mt_set, source_lang=source_lang)
+        mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
 
         # Compute metric for one (source, ref, translation) tuple at a time
         for au_emb, src_emb, ref_emb in embed_sets:
