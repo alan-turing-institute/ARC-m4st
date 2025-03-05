@@ -22,7 +22,7 @@ map_lang = {
     "ru": "rus_Cyrl",
     "es": "spa_Latn",
     "en": "eng_Latn",
-    "uk": "uk_Cyrl",
+    "uk": "ukr_Cyrl",
     "is": "isl_Latn",
 }
 
@@ -136,8 +136,6 @@ def main(args: dict) -> None:
     print("Getting text source embeddings...")
     src_embs = t2vec_model.predict(src_texts, source_lang=from_lang_blaser)
 
-    embed_sets = zip(audio_src_embs, src_embs, ref_embs, strict=False)
-
     print("Processing machine translations...")
 
     # There are multiple sets of machine translations
@@ -147,6 +145,9 @@ def main(args: dict) -> None:
     for mt_set in mt_texts:  # For each sentence
         # Get embeddings for all translated versions of this sentence
         mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
+        
+        # Create iteratable for sources and references
+        embed_sets = zip(audio_src_embs, src_embs, ref_embs, strict=False)
 
         # Compute metric for one (source, ref, translation) tuple at a time
         for au_emb, src_emb, ref_emb in embed_sets:
