@@ -114,18 +114,18 @@ def main(args: dict) -> None:
             sentences = input_file.readlines()
             ref_texts.append(sentences[speech_src_file[0]])
 
-        # Collect all machine translated sentences
-        # For each translation system, select the line that matches the source
-        mt_texts_sent = []
-        mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
-        mt_sent_files = os.scandir(mt_sent_dir)
-        for mt_sent_file in mt_sent_files:
-            mt_sys_names.append(os.path.basename(mt_sent_file.name))
-            with open(mt_sent_file) as input_file:
-                sentences = input_file.readlines()
-                mt_texts_sent.append(sentences[speech_src_file[0]])
+    # Collect all machine translated sentences
+    # For each translation system, select the line that matches the source
+    mt_texts_sent = []
+    mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
+    mt_sent_files = os.scandir(mt_sent_dir)
+    for mt_sent_file in mt_sent_files:
+        mt_sys_names.append(os.path.basename(mt_sent_file.name))
+        with open(mt_sent_file) as input_file:
+            sentences = input_file.readlines()
+            mt_texts_sent.append(sentences[speech_src_file[0]])
 
-        mt_texts.append(mt_texts_sent)
+    mt_texts.append(mt_texts_sent)
 
     # Get embeddings for source text, references, and source audio
     # These will be common across translation models
@@ -145,12 +145,11 @@ def main(args: dict) -> None:
     for mt_set in mt_texts:  # For each sentence
         # Get embeddings for all translated versions of this sentence
         mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
-        
-        # Create iteratable for sources and references
-        embed_sets = zip(audio_src_embs, src_embs, ref_embs, strict=False)
 
         # Compute metric for one (source, ref, translation) tuple at a time
-        for au_emb, src_emb, ref_emb in embed_sets:
+        for au_emb, src_emb, ref_emb in zip(
+            audio_src_embs, src_embs, ref_embs, strict=False
+        ):
             for mt_emb in mt_embs:
                 result_txt = blaser_ref(
                     src=src_emb[None, :], ref=ref_emb[None, :], mt=mt_emb[None, :]
