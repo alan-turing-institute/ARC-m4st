@@ -127,8 +127,8 @@ if __name__ == "__main__":
         "--refset",
         type=str,
         required=False,
-        default="RefA",
-        help="Reference set to use. Must be either RefA or RefB.",
+        default="refA",
+        help="Reference set to use. Must be either refA or refB.",
     )
     parser.add_argument(
         "--wmt-data-dir",
