@@ -26,4 +26,4 @@ export PYTORCH_FAIRSEQ_CACHE="$PROJ/kac/torch-cache/fairseq2"
 export FAIRSEQ2_CACHE_DIR="$PROJ/kac/torch-cache/fairseq2"
 export XDG_CACHE_HOME="$PROJ/kac/torch-cache/fairseq2"
 
-python /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/scripts/wmt24/run_wmt24_speech_blaser.py --source-audio-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/WMT24_GeneralMT_audio --wmt-data-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/mt-metrics-eval-v2/wmt24 --output-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/outputs/wmt24/BLASER --lang-pair en-de
+python /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/scripts/wmt24/run_wmt24_speech_blaser.py --source-audio-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/WMT24_GeneralMT_audio --wmt-data-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/mt-metrics-eval-v2/wmt24 --output-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/outputs/wmt24/BLASER --lang-pair ja-zh

@@ -32,6 +32,8 @@ def main(args: dict) -> None:
     output_dir = args["output_dir"]
     src_audio_dir = args["source_audio_dir"]
     lang_pair = args["lang_pair"]
+    
+    print("Setting up paths...")
 
     # Source text
     srcs_path = f"{wmt_root}/sources"
@@ -62,6 +64,8 @@ def main(args: dict) -> None:
         speech_encoder = "sonar_speech_encoder_jpn"
     elif from_lang == "en":
         speech_encoder = "sonar_speech_encoder_eng"
+        
+    print("Setting up model pipelines...")
 
     speech_encoder_model = load_sonar_speech_model(speech_encoder, device=device).eval()
     text_encoder_model = load_sonar_text_encoder_model(
@@ -96,9 +100,10 @@ def main(args: dict) -> None:
     ref_texts = []
     mt_texts = []
 
-    for speech_src_file in speech_sources:
+    # For all sentences in this translation pair set in the speech domain
+    for speech_src_details in speech_sources:
         # Get identifying filename for the corresponding .wav
-        spch_identifier = speech_src_file[1].split("_", 1)[1].strip("\n")
+        spch_identifier = speech_src_details[1].split("_", 1)[1].strip("\n")
         audio_file = f"{src_audio_dir}/{audio_subdir}/{spch_identifier}.wav"
         audio_files.append(audio_file)
 
@@ -106,26 +111,33 @@ def main(args: dict) -> None:
         src_sent_file = f"{srcs_path}/{from_lang}-{to_lang}.txt"
         with open(src_sent_file) as input_file:
             sentences = input_file.readlines()
-            src_texts.append(sentences[speech_src_file[0]])
+            src_texts.append(sentences[speech_src_details[0]])
 
         # Get corresponding reference sentence
         ref_sent_file = f"{refs_path}/{from_lang}-{to_lang}.refA.txt"
         with open(ref_sent_file) as input_file:
             sentences = input_file.readlines()
-            ref_texts.append(sentences[speech_src_file[0]])
+            ref_texts.append(sentences[speech_src_details[0]])
 
-    # Collect all machine translated sentences
-    # For each translation system, select the line that matches the source
-    mt_texts_sent = []
-    mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
-    mt_sent_files = os.scandir(mt_sent_dir)
-    for mt_sent_file in mt_sent_files:
-        mt_sys_names.append(os.path.basename(mt_sent_file.name))
-        with open(mt_sent_file) as input_file:
-            sentences = input_file.readlines()
-            mt_texts_sent.append(sentences[speech_src_file[0]])
-
-    mt_texts.append(mt_texts_sent)
+        # Collect all machine translated sentences
+        # For each translation system, select the line that matches the source
+        mt_texts_sent = []
+        mt_system_sent = []
+        mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
+        
+        # For each file containing the results from one MT system
+        for mt_sent_file in os.scandir(mt_sent_dir): # ~25    
+            mt_name = os.path.basename(mt_sent_file).replace('.txt', '')
+            mt_system_sent.append(mt_name)
+            with open(mt_sent_file) as input_file:
+                sentences = input_file.readlines()
+                mt_texts_sent.append(sentences[speech_src_details[0]])
+        
+        mt_texts.append(mt_texts_sent)
+        mt_sys_names.extend(mt_system_sent)
+        
+    print(len(mt_texts)) # 111, 25 (num_sentences, num_translation_models)
+    print(len(mt_sys_names)) # 2331 (num_sentences * num_translation models)
 
     # Get embeddings for source text, references, and source audio
     # These will be common across translation models
@@ -137,20 +149,25 @@ def main(args: dict) -> None:
     src_embs = t2vec_model.predict(src_texts, source_lang=from_lang_blaser)
 
     print("Processing machine translations...")
-
+    
+    # au, src, ref should all have length 111
+    print(len(audio_src_embs),
+              len(src_embs),
+                  len(ref_embs))
+    
     # There are multiple sets of machine translations
     # For each set of source, translation we apply the metric n times, once for each
     # translation model (n = ~25, seems to vary slightly by language)
     # mt_texts has shape (num_sentences, num_translation_models)
-    for mt_set in mt_texts:  # For each sentence
-        # Get embeddings for all translated versions of this sentence
-        mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
-
-        # Compute metric for one (source, ref, translation) tuple at a time
-        for au_emb, src_emb, ref_emb in zip(
+    mt_ix = 0
+    for au_emb, src_emb, ref_emb in zip(
             audio_src_embs, src_embs, ref_embs, strict=False
         ):
-            for mt_emb in mt_embs:
+        mt_set = mt_texts[mt_ix]
+        
+        # Get embeddings for all translated versions of this sentence
+        mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
+        for mt_emb in mt_embs:
                 result_txt = blaser_ref(
                     src=src_emb[None, :], ref=ref_emb[None, :], mt=mt_emb[None, :]
                 ).item()
@@ -159,7 +176,12 @@ def main(args: dict) -> None:
                 ).item()
                 au_src_results.append(result_audio)
                 txt_src_results.append(result_txt)
+        mt_ix += 1
 
+    print(len(mt_sys_names),
+              len(au_src_results),
+              len(txt_src_results))
+    
     results = pd.DataFrame(
         {
             "mt_system": mt_sys_names,

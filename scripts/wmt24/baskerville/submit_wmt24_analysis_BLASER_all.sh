@@ -2,7 +2,7 @@
 #SBATCH --account vjgo8416-spchmetrics
 #SBATCH --qos turing
 #SBATCH --job-name WMT24_BLASER
-#SBATCH --time 0-4:00:0
+#SBATCH --time 0-16:00:0
 #SBATCH --nodes 1
 #SBATCH --gpus 1
 #SBATCH --output /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/slurm_outputs/logs/%j.out
@@ -26,4 +26,4 @@ export PYTORCH_FAIRSEQ_CACHE="$PROJ/kac/torch-cache/fairseq2"
 export FAIRSEQ2_CACHE_DIR="$PROJ/kac/torch-cache/fairseq2"
 export XDG_CACHE_HOME="$PROJ/kac/torch-cache/fairseq2"
 
-python /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/scripts/wmt24/run_wmt24_all_blaser.py --wmt-data-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/mt-metrics-eval-v2/wmt24 --output-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/outputs/wmt24/BLASER/without_audio
+python /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/scripts/wmt24/run_wmt24_all_blaser.py --wmt-data-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/mt-metrics-eval-data/mt-metrics-eval-v2/wmt24 --output-dir /bask/homes/s/siql2253/vjgo8416-spchmetrics/kac/ARC-m4st/outputs/wmt24/BLASER/without_audio --lang-pair en-de --refset setB
