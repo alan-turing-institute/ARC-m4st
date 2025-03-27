@@ -1,0 +1,36 @@
+# Source: https://arxiv.org/abs/2210.13746
+1: minor
+2 : minor
+3: major
+4: major
+5: major
+6: critical
+7: critical
+8: critical
+9: critical
+10: critical
+11: critical
+12: minor
+13: minor
+14: minor
+15: minor
+16: minor # Minor with some major perturbations
+17: major
+18: major
+19: major
+20: minor # Minor with some major perturbations
+21: critical
+22: critical
+23: critical
+24: critical
+25: minor
+26: minor
+27: minor
+28: minor
+29: minor
+30: minor
+31: minor
+32: base
+33: base
+34: base
+35: base
