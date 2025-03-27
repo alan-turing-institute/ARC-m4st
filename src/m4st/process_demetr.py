@@ -7,8 +7,6 @@ import typing
 
 import pandas as pd
 
-from m4st.metrics import BLASERQEScore, BLASERRefScore, BLEUScore, ChrFScore, COMETScore
-
 
 class ProcessDEMETR:
     """Run the specified metrics over the DEMETR dataset from
@@ -29,6 +27,9 @@ class ProcessDEMETR:
                                 embedding generation.
     comet_model_str --          COMET model to use, e.g. wmt21-comet-mqm (default),
                                 Unbabel/XCOMET-XL.
+
+    metricx_model_str --        MetricX 24 model to use, e.g.
+                                google/metricx-24-hybrid-xl-v2p6" (default),
     """
 
     def __init__(
@@ -38,12 +39,14 @@ class ProcessDEMETR:
         metrics_to_use: list,
         blaser_lang_code_config: os.PathLike | str,
         comet_model_str: str,
+        metricx_model_str: str,
     ) -> None:
         self.output_dir = output_dir
         self.demetr_root = demetr_root
         self.metrics_to_use = metrics_to_use
         self.blaser_lang_code_config = blaser_lang_code_config
         self.comet_model_str = comet_model_str
+        self.metricx_model_str = metricx_model_str
 
         self.setup_metrics()
 
@@ -54,19 +57,46 @@ class ProcessDEMETR:
         metrics = []
 
         if "BLEU" in self.metrics_to_use:
+            from m4st.metrics.string import BLEUScore
+
             metrics.append(BLEUScore())
+
         if "BLASER_ref" in self.metrics_to_use:
+            from m4st.metrics.blaser import BLASERRefScore
+
             metrics.append(
                 BLASERRefScore(lang_code_config=self.blaser_lang_code_config)
             )
-        if "BLASER_qe" in self.metrics_to_use:
-            metrics.append(BLASERQEScore(lang_code_config=self.blaser_lang_code_config))
-        if "COMET" in self.metrics_to_use:
-            metrics.append(COMETScore(model=self.comet_model_str))
+
         if "ChrF" in self.metrics_to_use:
+            from m4st.metrics.string import ChrFScore
+
             metrics.append(ChrFScore(word_order=1))
+
         if "ChrF2" in self.metrics_to_use:
+            from m4st.metrics.string import ChrFScore
+
             metrics.append(ChrFScore(word_order=2))
+
+        if "BLASER_qe" in self.metrics_to_use:
+            from m4st.metrics.blaser import BLASERQEScore
+
+            metrics.append(BLASERQEScore(lang_code_config=self.blaser_lang_code_config))
+
+        if "COMET" in self.metrics_to_use:
+            from m4st.metrics.comet import COMETScore
+
+            metrics.append(COMETScore(model=self.comet_model_str))
+
+        if "MetricX_ref" in self.metrics_to_use:
+            from m4st.metrics.metricx import MetricXScore
+
+            metrics.append(MetricXScore(qe=False, model=self.metricx_model_str))
+
+        if "MetricX_qe" in self.metrics_to_use:
+            from m4st.metrics.metricx import MetricXScore
+
+            metrics.append(MetricXScore(qe=True, model=self.metricx_model_str))
 
         self.metrics = metrics
 
@@ -99,6 +129,7 @@ class ProcessDEMETR:
         # Get list of JSON files
         # Each file contains sentences for a single DEMETR category
         dataset_list = os.listdir(self.demetr_root)
+        print(f"Found {len(dataset_list)} input files")
 
         for ds in dataset_list:
             ds_cat = int(ds.split("_")[1].strip("id"))

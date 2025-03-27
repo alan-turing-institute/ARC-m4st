@@ -30,22 +30,11 @@ classifiers = [
 dependencies = [
     "tqdm",
     "requests",
-    "evaluate>=0.4.3",
-    "fairseq2>=0.2.0",
-    "filelock>=3.0.12",
-    "ipykernel>=6.29.5",
-    "nltk>=3.9.1",
     "pandas>=2.2.3",
-    "sacrebleu>=2.4.3",
+    "ipykernel>=6.29.5",
     "seaborn>=0.13.2",
-    "sonar-space>=0.2.0",
-    "torch",
-    "torchvision",
-    "unbabel-comet==2.2.3",
+    "pydub",
     "librosa>=0.10.2.post1",
-    "sentencepiece",
-    "transformers",
-    "pydub"
 ]
 
 [project.optional-dependencies]
@@ -53,6 +42,41 @@ dev = [
   "pytest >=6",
   "pytest-cov >=3",
   "pre-commit>=3.2.0",
+]
+metricx = [
+  "metricx @ git+https://github.com/jack89roberts/metricx",
+  "torch",
+  "transformers",
+]
+comet = [
+  "evaluate>=0.4.3",
+  "torch",
+  "transformers",
+  "unbabel-comet==2.2.3",
+  "sentencepiece",
+]
+blaser = [
+  "sonar-space>=0.2.0",
+  "fairseq2>=0.2.0",
+  "filelock>=3.0.12",
+  "torch",
+  "torchvision",
+  "sentencepiece",
+
+]
+string = [
+  "evaluate>=0.4.3",
+  "nltk>=3.9.1",
+  "sacrebleu>=2.4.3",
+]
+
+[tool.uv]
+conflicts = [
+    [
+      { extra = "blaser" },
+      { extra = "comet" },
+      { extra = "metricx" },
+    ],
 ]
 
 [project.urls]
