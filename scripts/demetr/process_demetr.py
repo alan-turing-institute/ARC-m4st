@@ -75,6 +75,7 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="COMET model to use.",
+        default="Unbabel/wmt22-comet-da",
     )
 
     parser.add_argument(
