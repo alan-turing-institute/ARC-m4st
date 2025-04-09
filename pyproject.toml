@@ -28,13 +28,28 @@ classifiers = [
 ]
 
 dependencies = [
-    "tqdm",
-    "requests",
-    "pandas>=2.2.3",
+    "datasets>=3.5.0",
+    "evaluate>=0.4.3",
+    "fairseq2>=0.4.5",
+    "filelock>=3.18.0",
     "ipykernel>=6.29.5",
+    "librosa>=0.11.0",
+    "nltk>=3.9.1",
+    "ollama>=0.4.7",
+    "pandas>=2.2.3",
+    "protobuf>=4.25.6",
+    "pydub>=0.25.1",
+    "requests>=2.32.3",
+    "sacrebleu>=2.5.1",
     "seaborn>=0.13.2",
-    "pydub",
-    "librosa>=0.10.2.post1",
+    "sentencepiece>=0.2.0",
+    "sonar-space>=0.4.0",
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "torchvision>=0.21.0",
+    "tqdm>=4.67.1",
+    "transformers[torch]>=4.51.1",
+    "unbabel-comet>=2.2.6",
 ]
 
 [project.optional-dependencies]
@@ -42,41 +57,6 @@ dev = [
   "pytest >=6",
   "pytest-cov >=3",
   "pre-commit>=3.2.0",
-]
-metricx = [
-  "metricx @ git+https://github.com/jack89roberts/metricx",
-  "torch",
-  "transformers",
-]
-comet = [
-  "evaluate>=0.4.3",
-  "torch",
-  "transformers",
-  "unbabel-comet==2.2.3",
-  "sentencepiece",
-]
-blaser = [
-  "sonar-space>=0.2.0",
-  "fairseq2>=0.2.0",
-  "filelock>=3.0.12",
-  "torch",
-  "torchvision",
-  "sentencepiece",
-
-]
-string = [
-  "evaluate>=0.4.3",
-  "nltk>=3.9.1",
-  "sacrebleu>=2.4.3",
-]
-
-[tool.uv]
-conflicts = [
-    [
-      { extra = "blaser" },
-      { extra = "comet" },
-      { extra = "metricx" },
-    ],
 ]
 
 [project.urls]
@@ -107,7 +87,7 @@ port.exclude_lines = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.10"
+python_version = "3.11"
 show_error_codes = true
 warn_unreachable = true
 disallow_untyped_defs = false

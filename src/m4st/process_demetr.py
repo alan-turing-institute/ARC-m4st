@@ -25,8 +25,8 @@ class ProcessDEMETR:
                                 language codes. e.g. DEMETR may specify source language
                                 as "french" which requires the code "fra_Latn" for SONAR
                                 embedding generation.
-    comet_model_str --          COMET model to use, e.g. wmt21-comet-mqm (default),
-                                Unbabel/XCOMET-XL.
+    comet_model_str --          COMET model to use, e.g. Unlabel/wmt22-comet-da
+                                (default), Unbabel/XCOMET-XL.
 
     metricx_model_str --        MetricX 24 model to use, e.g.
                                 google/metricx-24-hybrid-xl-v2p6" (default),
