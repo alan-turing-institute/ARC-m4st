@@ -44,7 +44,8 @@ def main(args: dict) -> None:
     blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
 
     text_encoder_model = load_sonar_text_encoder_model(
-        "text_sonar_basic_encoder", device='cuda',
+        "text_sonar_basic_encoder",
+        device="cuda",
     ).eval()
 
     t2vec_model = TextToEmbeddingModelPipeline(
@@ -52,14 +53,13 @@ def main(args: dict) -> None:
     )
 
     if os.path.isdir(mt_path):
-
         # Output is stored as [output dir]/[xx-xx]/[MT system].[level].score
         lp_output_path = f"{output_dir}/{lang_pair}"
         os.makedirs(lp_output_path, exist_ok=True)
-            
-        from_lang = lang_pair.split('-')[0]
-        to_lang = lang_pair.split('-')[1]
-            
+
+        from_lang = lang_pair.split("-")[0]
+        to_lang = lang_pair.split("-")[1]
+
         # Convert to SONAR language codes (from NLLB)
         from_lang_blaser = map_lang[from_lang]
         to_lang_blaser = map_lang[to_lang]
@@ -93,14 +93,18 @@ def main(args: dict) -> None:
                         translations = input_file.readlines()
 
                     # Get embeddings for translations from this MT system
-                    t_embs = t2vec_model.predict(translations, source_lang=to_lang_blaser)
+                    t_embs = t2vec_model.predict(
+                        translations, source_lang=to_lang_blaser
+                    )
                     for src, ref, mt in zip(src_embs, ref_embs, t_embs, strict=False):
                         result = blaser_ref(
                             src=src[None, :], ref=ref[None, :], mt=mt[None, :]
                         ).item()
                         mt_results.append(result)
 
-                all_sys_results = pd.DataFrame({"system": mt_names, "score": mt_results})
+                all_sys_results = pd.DataFrame(
+                    {"system": mt_names, "score": mt_results}
+                )
                 all_sys_results.to_csv(mt_output_file, header=False, index=False)
 
 
