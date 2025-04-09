@@ -196,7 +196,7 @@ class MT5ForRegression(MT5PreTrainedModel):
                 attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
             )
 
-            hidden_states = encoder_outputs[0]  # type: ignore[index]
+        hidden_states = encoder_outputs[0]  # type: ignore[index]
 
         if self.model_parallel:
             torch.cuda.set_device(self.decoder.first_device)
