@@ -2,6 +2,8 @@
 
 This is a short, pretty contrived, example of how ASR errors may impact the different metrics. The hope was to demonstrate that BLASER-2 has a clear advantage in this regard.
 
+## Summary of the approach taken
+
 1. Take a source audio file and ground truth transcript from the WMT24 speech subset.
 2. Create sequences of modified source transcripts, from identical to the ground truth transcript to very different to it, by various strategies.
 3. Translate the modified source transcripts to Spanish.
