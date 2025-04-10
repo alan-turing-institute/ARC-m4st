@@ -72,7 +72,7 @@ can become:
 
 > the of then we that antique with and antiqued After I more of the to brass they...
 
-These sources are saved in `data/source_random` and generated with `merge_random.py`.
+These sources are saved in `data/source_random` and generated with `random_source.py`.
 
 ## Translations
 
