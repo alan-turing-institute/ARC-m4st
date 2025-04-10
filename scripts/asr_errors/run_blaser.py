@@ -1,8 +1,19 @@
-import torchaudio
+"""
+Score a source and translation group with BLASER-2 QE, with both audio and text sources.
+"""
+
 import torchaudio.functional as F
 from sonar.inference_pipelines.speech import SpeechToEmbeddingModelPipeline
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
+from utils import (
+    get_group,
+    get_group_hypotheses,
+    get_group_sources,
+    get_reference,
+    get_scores_path,
+    get_source_audio,
+)
 
 map_lang = {
     "zh": "zho_Hans",
@@ -19,6 +30,16 @@ map_lang = {
 
 
 def main() -> None:
+    group = get_group()
+    text_sources = get_group_sources(group)
+    hypotheses = get_group_hypotheses(group)
+    reference = get_reference()
+    text_scores_path = get_scores_path(group, "blaser_text")
+
+    audio_source, sample_rate = get_source_audio()
+    audio_source = F.resample(audio_source, sample_rate, 16000)
+    audio_scores_path = get_scores_path(group, "blaser_audio")
+
     blaser = load_blaser_model("blaser_2_0_qe").eval()
 
     from_lang = "eng_Latn"
@@ -31,20 +52,6 @@ def main() -> None:
     t2vec_model = TextToEmbeddingModelPipeline(
         encoder=text_encoder, tokenizer=text_encoder
     )
-
-    text_sources = []
-    hypotheses = []
-    for i in range(331):
-        with open(f"data/source_merged/merged_source_{i}.txt") as f:
-            text_sources.append(f.read())
-        with open(f"data/translation_merged/merged_translation_{i}.txt") as f:
-            hypotheses.append(f.read())
-
-    with open("data/reference.txt") as f:
-        reference = f.read()
-
-    audio_source, sample_rate = torchaudio.load("data/source.wav")
-    audio_source = F.resample(audio_source, sample_rate, 16000)
 
     # Get embeddings for source text, references, and source audio
     # These will be common across translation models
@@ -64,14 +71,14 @@ def main() -> None:
     hyp_embeds = t2vec_model.predict(hypotheses, source_lang=to_lang)
     text_scores = blaser(src=text_src_embeds, mt=hyp_embeds)
     text_scores = text_scores.squeeze().tolist()
-    with open("data/blaser_merged_text_scores.txt", "w") as f:
+    with open(text_scores_path, "w") as f:
         for score in text_scores:
             f.write(f"{score}\n")
 
     audio_src_embeds = audio_src_emb.repeat(hyp_embeds.shape[0], 1)
     audio_scores = blaser(src=audio_src_embeds, mt=hyp_embeds)
     audio_scores = audio_scores.squeeze().tolist()
-    with open("data/blaser_merged_audio_scores.txt", "w") as f:
+    with open(audio_scores_path, "w") as f:
         for score in audio_scores:
             f.write(f"{score}\n")
 

@@ -1,13 +1,23 @@
+"""
+Use Azure Translate API to translate a directory of modified source files into Spanish.
+"""
+
+import os
 import time
 import uuid
 
 import requests
+from utils import get_group, get_group_mt_path, get_group_sources
 
 
 class AzureTranslateModel:
     def __init__(self):
         # Add your key and endpoint
-        self.key = "<YOUR_ENDPOINT_KEY>"
+        try:
+            self.key = os.environ["AZURE_TRANSLATE_KEY"]
+        except KeyError as e:
+            msg = "Please set the AZURE_TRANSLATE_KEY environment variable."
+            raise KeyError(msg) from e
         endpoint = "https://api.cognitive.microsofttranslator.com"
 
         # location, also known as region.
@@ -41,16 +51,15 @@ class AzureTranslateModel:
 
 
 if __name__ == "__main__":
+    group = get_group()
+    output_path = get_group_mt_path(group)
+    sources = get_group_sources(group)
+
     model = AzureTranslateModel()
-
-    for i in range(331):
-        with open(f"data/source_merged/merged_source_{i}.txt") as f:
-            source = f.read()
-
-        # translation = ". ".join(model(s) for s in source.split("."))
+    for i, source in enumerate(sources):
         translation = model(source)
 
-        with open(f"data/translation_merged/merged_translation_{i}.txt", "w") as f:
+        with open(f"{output_path}_{i}.txt", "w") as f:
             f.write(translation)
 
-        time.sleep(3)
+        time.sleep(3)  # Avoid hitting the rate limit
