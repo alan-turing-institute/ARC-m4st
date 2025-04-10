@@ -10,7 +10,7 @@ This is a short, pretty contrived, example of how ASR errors may impact the diff
 4. Compute reference-free metrics between the modified source texts and their translations (with QE variants of BLASER-2 text, MetricX, and COMET)
 5. Compute the BLASER-2 scores when using the original source audio as input and the translations of the modified source text.
 
-We would expect the BLASER-2-audio score to drop much more quickly than the COMET/MetricX/BLASER-2-text as the transcripts are made progressively worse, as it is the only metric that has access to the original audio (everything else is attempting to measure similarity between the transcript and translation, not the source and translation).
+We would expect the BLASER-2-audio score to drop much more quickly than COMET/MetricX/BLASER-2-text as the transcripts are made progressively worse, as it is the only metric that has access to the original audio (everything else is attempting to measure similarity between the transcript and translation, not the source and translation).
 
 ## Input Data
 
