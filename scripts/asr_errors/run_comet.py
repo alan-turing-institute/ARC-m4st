@@ -1,4 +1,15 @@
+"""
+Score a source and translation group with COMET Kiwi.
+"""
+
 from comet import download_model, load_from_checkpoint
+from utils import (
+    get_group,
+    get_group_hypotheses,
+    get_group_sources,
+    get_reference,
+    get_scores_path,
+)
 
 
 class COMETScore:
@@ -24,23 +35,18 @@ class COMETScore:
 
 
 if __name__ == "__main__":
+    group = get_group()
+    sources = get_group_sources(group)
+    hypotheses = get_group_hypotheses(group)
+    reference = get_reference()
+    scores_path = get_scores_path(group, "comet")
+
     model = COMETScore("Unbabel/wmt22-cometkiwi-da")
-
-    sources = []
-    hypotheses = []
-    for i in range(331):
-        with open(f"data/source_merged/merged_source_{i}.txt") as f:
-            sources.append(f.read())
-        with open(f"data/translation_merged/merged_translation_{i}.txt") as f:
-            hypotheses.append(f.read())
-
-    with open("data/reference.txt") as f:
-        reference = f.read()
 
     ref_score = model([sources[-1]], [reference])
     print("REF SCORE:", ref_score)
 
     scores = model(sources, hypotheses)
-    with open("data/comet_merged_scores.txt", "w") as f:
+    with open(scores_path, "w") as f:
         for score in scores:
             f.write(f"{score}\n")
