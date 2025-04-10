@@ -34,7 +34,7 @@ None of the strategies produce text that is a realistic representation of likely
 
 ### "Perturbed" Strategy
 
-For each word in the original source, Llama 3.2 (3B) is prompted with `What is a similar word to "{w}"? Reply with only a single word.`, to get a list of words the are somehow 'similar' to each word. A set of sources is saved with a varying number of words replaced with the supposedly 'similar' words.
+For each word in the original source, Llama 3.2 (3B) is prompted with `What is a similar word to "{w}"? Reply with only a single word.`, to get a list of words that are somehow 'similar' to each word. A set of sources is saved with a varying number of words replaced with the supposedly 'similar' words.
 
 This creates quite non-sensical text, for example original source text of
 
