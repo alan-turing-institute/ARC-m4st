@@ -92,7 +92,7 @@ See the script `results.py`, which makes the outputs `data/results.png`, `data/b
 
 Metric scores are roughly scaled to 0-1 and sign-flipped so higher is better (for MetricX). The absolute values shouldn't be relied on too heavily, and BLASER-2 in particular doesn't seem to restrict itself to the 1-5 range of XSTS scores as intended (which causes some negative scores in the plots below where BLASER-2 returned a score below 1).
 
-The expectation is the BLASER-2 Audio score (using the original source audio) should decrease fastests as the text transcript (and so the resulting translation) is modified.
+The expectation is that the BLASER-2 Audio score (using the original source audio) should decrease fastest as the text transcript (and so the resulting translation) is modified.
 
 ### Metric Scores for Each Source Modification Group
 
