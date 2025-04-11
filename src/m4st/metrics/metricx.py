@@ -313,20 +313,14 @@ class MetricXScore(Metric):
             self.model_name += "_ref"
 
     def preprocess(
-        self, cat_data: pd.DataFrame, src_col: str, pred_col: str, ref_col: str
+        self, references: pd.Series, predictions: pd.Series, sources: pd.Series
     ) -> datasets.Dataset:
         with tempfile.TemporaryDirectory() as tempdir:
             fname = f"{tempdir}/cat_data.json"
             with open(fname, "a") as f:
-                for _, row in cat_data.iterrows():
+                for s, hyp, ref in zip(sources, predictions, references, strict=False):
                     f.write(
-                        json.dumps(
-                            {
-                                "source": row[src_col],
-                                "hypothesis": row[pred_col],
-                                "reference": row[ref_col],
-                            }
-                        )
+                        json.dumps({"source": s, "hypothesis": hyp, "reference": ref})
                     )
             return get_dataset(fname, self.tokenizer, self.max_input_length, self.qe)
 
@@ -343,30 +337,36 @@ class MetricXScore(Metric):
         return [float(pred) for pred in predictions]
 
     def get_scores(
+        self, references: pd.Series, predictions: pd.Series, sources: pd.Series
+    ) -> list[float]:
+        ds = self.preprocess(references, predictions, sources)
+        return self.compute(ds)
+
+    def process_demetr_cat(
         self, cat_data: pd.DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
-        output_file = f"{self.model_name}_{input_fp}"
         sentence_ids = np.array(cat_data["id"])
-        src_langs = list(cat_data["lang_tag"])
+        ref_txts = cat_data["eng_sent"]  # Human translation
+        mt_txts = cat_data["mt_sent"]  # Original machine translation
+        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
+        src_txts = cat_data["src_sent"]  # Source (original) text
+        src_langs = cat_data["lang_tag"]  # Source language
+        sentence_ids = cat_data["id"]
 
-        mt_data = self.preprocess(
-            cat_data, src_col="src_sent", pred_col="mt_sent", ref_col="eng_sent"
-        )
-        mt_scores = self.compute(mt_data)
+        mt_scores = self.get_scores(ref_txts, mt_txts, src_txts)
+        d_scores = self.get_scores(ref_txts, dfluent_txts, src_txts)
 
-        d_data = self.preprocess(
-            cat_data, src_col="src_sent", pred_col="pert_sent", ref_col="eng_sent"
-        )
-        d_scores = self.compute(d_data)
-
-        results = {}
-
-        for i in range(len(mt_scores)):
-            results[int(sentence_ids[[i]])] = {
-                "source_language": src_langs[i],
-                "mt_score": mt_scores[i],
-                "disfluent_score": d_scores[i],
+        results = {
+            index: {
+                "source_language": lang,
+                "mt_score": mt_score,
+                "disfluent_score": d_score,
             }
+            for index, lang, mt_score, d_score in zip(
+                sentence_ids, src_langs, mt_scores, d_scores, strict=True
+            )
+        }
 
+        output_file = f"{self.model_name}_{input_fp}"
         with open(os.path.join(output_path, output_file), "w+") as file_to_write:
             json.dump(results, file_to_write)

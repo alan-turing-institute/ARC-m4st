@@ -2,7 +2,7 @@ import json
 import os
 
 import numpy as np
-from pandas import DataFrame
+from pandas import DataFrame, Series
 from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
 from sonar.models.blaser.loader import load_blaser_model
 from yaml import YAMLError, safe_load
@@ -38,9 +38,46 @@ class BLASERRefScore(Metric):
             self.lang_code_mapping = lang_code_mapping
 
     def get_scores(
+        self,
+        references: Series,
+        predictions: Series,
+        sources: Series,
+        source_lang_codes: Series,
+    ) -> list:
+        langs = np.unique(source_lang_codes)
+
+        # Store results for all languages so they can be returned together
+        results = np.full(len(references), np.nan, dtype=float)
+
+        # BLASER requires the source language, so at best we can batch by language as
+        # source_lang must be a string
+        for language in langs:
+            mask = source_lang_codes == language
+            sources_lang = np.array(sources[mask])
+            refs_lang = np.array(references[mask])
+            preds_lang = np.array(predictions[mask])
+
+            src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
+            ref_embs = self.text_embedder.predict(
+                refs_lang, source_lang=self.ref_lang_code
+            )
+            mt_embs = self.text_embedder.predict(
+                preds_lang, source_lang=self.ref_lang_code
+            )
+
+            lang_results = [
+                self.blaser_ref(
+                    src=src_embs[[i]], ref=ref_embs[[i]], mt=mt_embs[[i]]
+                ).item()
+                for i in range(len(src_embs))
+            ]
+            results[mask] = lang_results
+
+        return results
+
+    def process_demetr_cat(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
-        output_file = f"BLASER_Ref_{input_fp}"
         ref_txts = cat_data["eng_sent"]  # Human translation
         mt_txts = cat_data["mt_sent"]  # Original machine translation
         dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
@@ -51,60 +88,32 @@ class BLASERRefScore(Metric):
             source_lang_codes = src_langs.replace(self.lang_code_mapping)
         else:
             source_lang_codes = src_langs
-        langs = np.unique(source_lang_codes)
 
-        results = {}
+        mt_scores = self.get_scores(ref_txts, mt_txts, src_txts, source_lang_codes)
+        d_scores = self.get_scores(ref_txts, dfluent_txts, src_txts, source_lang_codes)
 
-        # BLASER requires the source language, so at best we can batch embedding
-        # generation by language as source_lang must be a string
-        for language in langs:
-            mask = source_lang_codes == language
-            sources_lang = np.array(src_txts[mask])
-            refs_lang = np.array(ref_txts[mask])
-            mt_lang = np.array(mt_txts[mask])
-            d_lang = np.array(dfluent_txts[mask])
-            src_lang = np.array(src_langs[mask])
-            ids_lang = np.array(sentence_ids[mask])
-
-            # Source embeddings
-            src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
-
-            # Reference embeddings
-            ref_embs = self.text_embedder.predict(
-                refs_lang, source_lang=self.ref_lang_code
+        results = {
+            index: {
+                "source_language": lang,
+                "mt_score": mt_score,
+                "disfluent_score": d_score,
+            }
+            for index, lang, mt_score, d_score in zip(
+                sentence_ids, src_langs, mt_scores, d_scores, strict=True
             )
-            # Fluent translation embeddings
-            mt_embs = self.text_embedder.predict(
-                mt_lang, source_lang=self.ref_lang_code
-            )
-            # Disfluent translation embeddings
-            d_embs = self.text_embedder.predict(d_lang, source_lang=self.ref_lang_code)
-
-            # Actual metric is computed one sample at a time
-            for i in range(len(src_embs)):
-                mt_result = self.blaser_ref(
-                    src=src_embs[[i]], ref=ref_embs[[i]], mt=mt_embs[[i]]
-                ).item()
-                d_result = self.blaser_ref(
-                    src=src_embs[[i]], ref=ref_embs[[i]], mt=d_embs[[i]]
-                ).item()
-
-                results[int(ids_lang[[i]])] = {
-                    "source_language": src_lang[i],
-                    "mt_score": mt_result,
-                    "disfluent_score": d_result,
-                }
-
+        }
+        output_file = f"BLASER_Ref_{input_fp}"
         with open(os.path.join(output_path, output_file), "w+") as file_to_write:
             json.dump(results, file_to_write)
 
 
 class BLASERQEScore(Metric):
-    """Initialises and applies the BLASER 2.0 reference-based metric from the SONAR
-    library."""
+    """Initialises and applies the BLASER 2.0 QE metric from the SONAR library."""
 
     def __init__(
-        self, lang_code_config: str | os.PathLike, ref_lang_code: str = "eng_Latn"
+        self,
+        lang_code_config: str | os.PathLike,
+        ref_lang_code: str = "eng_Latn",
     ) -> None:
         self.blaser_qe = load_blaser_model("blaser_2_0_qe").eval()
         self.text_embedder = TextToEmbeddingModelPipeline(
@@ -126,9 +135,39 @@ class BLASERQEScore(Metric):
             self.lang_code_mapping = lang_code_mapping
 
     def get_scores(
+        self,
+        predictions: Series,
+        sources: Series,
+        source_lang_codes: Series,
+    ) -> list:
+        langs = np.unique(source_lang_codes)
+
+        # Store results for all languages so they can be returned together
+        results = np.full(len(sources), np.nan, dtype=float)
+
+        # BLASER requires the source language, so at best we can batch by language as
+        # source_lang must be a string
+        for language in langs:
+            mask = source_lang_codes == language
+            sources_lang = np.array(sources[mask])
+            preds_lang = np.array(predictions[mask])
+
+            src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
+            mt_embs = self.text_embedder.predict(
+                preds_lang, source_lang=self.ref_lang_code
+            )
+
+            lang_results = [
+                self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
+                for i in range(len(src_embs))
+            ]
+            results[mask] = lang_results
+
+        return results
+
+    def process_demetr_cat(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
-        output_file = f"BLASER_QE_{input_fp}"
         mt_txts = cat_data["mt_sent"]  # Original machine translation
         dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
         src_txts = cat_data["src_sent"]  # Source (original) text
@@ -138,40 +177,20 @@ class BLASERQEScore(Metric):
             source_lang_codes = src_langs.replace(self.lang_code_mapping)
         else:
             source_lang_codes = src_langs
-        langs = np.unique(source_lang_codes)
 
-        results = {}
+        mt_scores = self.get_scores(mt_txts, src_txts, source_lang_codes)
+        d_scores = self.get_scores(dfluent_txts, src_txts, source_lang_codes)
 
-        # BLASER requires the source language, so at best we can batch by language as
-        # source_lang must be a string
-        for language in langs:
-            mask = source_lang_codes == language
-            sources_lang = np.array(src_txts[mask])
-            mt_lang = np.array(mt_txts[mask])
-            d_lang = np.array(dfluent_txts[mask])
-            src_lang = np.array(src_langs[mask])
-            ids_lang = np.array(sentence_ids[mask])
-
-            # Source embeddings
-            src_embs = self.text_embedder.predict(sources_lang, source_lang=language)
-
-            # Fluent translation embeddings
-            mt_embs = self.text_embedder.predict(
-                mt_lang, source_lang=self.ref_lang_code
+        results = {
+            index: {
+                "source_language": lang,
+                "mt_score": mt_score,
+                "disfluent_score": d_score,
+            }
+            for index, lang, mt_score, d_score in zip(
+                sentence_ids, src_langs, mt_scores, d_scores, strict=True
             )
-
-            # Disfluent translation embeddings
-            d_embs = self.text_embedder.predict(d_lang, source_lang=self.ref_lang_code)
-
-            for i in range(len(src_embs)):
-                mt_result = self.blaser_qe(src=src_embs[[i]], mt=mt_embs[[i]]).item()
-                d_result = self.blaser_qe(src=src_embs[[i]], mt=d_embs[[i]]).item()
-
-                results[int(ids_lang[[i]])] = {
-                    "source_language": src_lang[i],
-                    "mt_score": mt_result,
-                    "disfluent_score": d_result,
-                }
-
+        }
+        output_file = f"BLASER_QE_{input_fp}"
         with open(os.path.join(output_path, output_file), "w+") as file_to_write:
             json.dump(results, file_to_write)
