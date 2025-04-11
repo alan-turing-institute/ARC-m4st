@@ -6,7 +6,7 @@ from pandas import DataFrame
 
 class Metric(ABC):
     @abstractmethod
-    def get_scores(
+    def process_demetr_cat(
         self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
     ) -> None:
         """Function definition for all metrics. Assumes use of the DEMETR dataset.

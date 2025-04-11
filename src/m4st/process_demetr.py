@@ -110,7 +110,7 @@ class ProcessDEMETR:
         demetr_df = pd.read_json(curr_ds_path)
 
         for metric in self.metrics:  # type: ignore[has-type]
-            metric.get_scores(demetr_df, self.output_dir, cat_fp)
+            metric.process_demetr_cat(demetr_df, self.output_dir, cat_fp)
 
     def process_demetr(
         self,
