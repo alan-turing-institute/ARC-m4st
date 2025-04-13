@@ -43,17 +43,35 @@ class ProcessDEMETR:
         output_dir: os.PathLike | str,
         demetr_root: os.PathLike | str,
         metrics_to_use: list,
-        blaser_lang_code_config: os.PathLike | str,
         comet_model_str: str,
         metricx_model_str: str,
     ) -> None:
         self.output_dir = output_dir
         self.demetr_root = demetr_root
         self.metrics_to_use = metrics_to_use
-        self.blaser_lang_code_config = blaser_lang_code_config
         self.comet_model_str = comet_model_str
         self.metricx_model_str = metricx_model_str
         self.metrics_to_use = metrics_to_use
+
+        # mapping DEMETR language codes to SONAR/BLASER language codes.
+        # e.g. DEMETR may specify source language as "french" which requires the code
+        # "fra_Latn" for SONAR embedding generation.
+        self.demetr_to_sonar_lang_mapping = {
+            "chinese_simple": "zho_Hans",
+            "czech": "ces_Latn",
+            "french": "fra_Latn",
+            "german": "deu_Latn",
+            "hindi": "hin_Deva",
+            "italian": "ita_Latn",
+            "japanese": "jpn_Jpan",
+            "polish": "pol_Latn",
+            "russian": "rus_Cyrl",
+            "spanish": "spa_Latn",
+        }
+        self.sonar_to_demetr_lang_mapping = {
+            v: k for k, v in self.demetr_to_sonar_lang_mapping.items()
+        }
+        self.target_language = "eng_Latn"
 
         print(f"Using metrics {self.metrics_to_use}")
 
@@ -71,19 +89,19 @@ class ProcessDEMETR:
         if metric_specifier == "MetricX_qe":
             return MetricXScore(qe=True, model=self.metricx_model_str)
         if metric_specifier == "BLASER_ref":
-            return BLASERScore(lang_code_config=self.blaser_lang_code_config, qe=False)
+            return BLASERScore(qe=False)
         if metric_specifier == "BLASER_qe":
-            return BLASERScore(lang_code_config=self.blaser_lang_code_config, qe=True)
+            return BLASERScore(qe=True)
 
         msg = f"Unknown metric specifier {metric_specifier}"
         raise ValueError(msg)
 
-    @staticmethod
     def save_metric_cat_scores(
+        self,
         metric: Metric,
         mt_ds: TranslationDataset,
         disfluent_ds: TranslationDataset,
-        output_path: str,
+        cat_fp: str,
     ) -> None:
         """
         Compute scores for a single metric on a single category of the DEMETR dataset.
@@ -92,9 +110,10 @@ class ProcessDEMETR:
         mt_scores = metric.get_scores(mt_ds)
         disfluent_scores = metric.get_scores(disfluent_ds)
 
+        # results with SONAR language codes converted back to DEMETR codes
         results = {
             index: {
-                "source_language": lang,
+                "source_language": self.sonar_to_demetr_lang_mapping[lang],
                 "mt_score": mt_score,
                 "disfluent_score": d_score,
             }
@@ -106,7 +125,9 @@ class ProcessDEMETR:
                 strict=True,
             )
         }
-        with open(output_path, "w+") as file_to_write:
+
+        output_file = os.path.join(self.output_dir, f"{metric.name}_{cat_fp}")
+        with open(output_file, "w+") as file_to_write:
             json.dump(results, file_to_write)
 
     def process_demetr_category(
@@ -118,26 +139,35 @@ class ProcessDEMETR:
         # Load sentences into dataframe
         demetr_df = pd.read_json(curr_ds_path)
 
+        # target always english
+        target_language = [self.target_language] * len(demetr_df)
+        # Convert DEMETR source language codes to SONAR/BLASER language codes.
+        # (BLASER is the only metric the requires language codes)
+        source_language = [
+            self.demetr_to_sonar_lang_mapping[lang] for lang in demetr_df["lang_tag"]
+        ]
+
         mt_ds = TranslationDataset(
             reference=demetr_df["eng_sent"],  # Human translation
             prediction=demetr_df["mt_sent"],  # Original machine translation
             source=demetr_df["src_sent"],  # Source (original) text
-            source_language=demetr_df["lang_tag"],  # Source language
+            source_language=source_language,  # Source language
+            target_language=target_language,  # Target language
             index=demetr_df["id"],  # Sentence ID
         )
         disfluent_ds = TranslationDataset(
             reference=demetr_df["eng_sent"],  # Human translation
             prediction=demetr_df["pert_sent"],  # Perturbed machine translation
             source=demetr_df["src_sent"],  # Source (original) text
-            source_language=demetr_df["lang_tag"],  # Source language
+            source_language=source_language,  # Source language
+            target_language=target_language,  # Target language
             index=demetr_df["id"],  # Sentence ID
         )
 
         for metric_specifier in self.metrics_to_use:  # type: ignore[has-type]
             print(metric_specifier)
             metric = self.setup_metric(metric_specifier)
-            output_file = os.path.join(self.output_dir, f"{metric.name}_{cat_fp}")
-            self.save_metric_cat_scores(metric, mt_ds, disfluent_ds, output_file)
+            self.save_metric_cat_scores(metric, mt_ds, disfluent_ds, cat_fp)
 
     def process_demetr(
         self,

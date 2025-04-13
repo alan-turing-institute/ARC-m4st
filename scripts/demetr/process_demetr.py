@@ -13,7 +13,6 @@ def main(args: dict) -> None:
         metrics_to_use=args["metrics"],
         output_dir=output_dir,
         demetr_root=args["dataset_dir"],
-        blaser_lang_code_config=args["blaser_lang_config"],
         comet_model_str=args["comet_model"],
         metricx_model_str=args["metricx_model"],
     )
@@ -63,12 +62,6 @@ if __name__ == "__main__":
         required=False,
         help="Specific DEMETR disfluency \
             categories to be processed. By default all will be processsed.",
-    )
-    parser.add_argument(
-        "--blaser-lang-config",
-        type=str,
-        default="../../configs/demetr/BLASER_lang_code_conversion.yaml",
-        help="YAML config file mapping DEMETR language codes to SONAR language codes.",
     )
     parser.add_argument(
         "--comet-model",
