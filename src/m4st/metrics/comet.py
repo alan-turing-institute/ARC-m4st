@@ -1,10 +1,6 @@
-import json
-import os
-
 from comet import download_model, load_from_checkpoint
-from pandas import DataFrame, Series
 
-from m4st.metrics import Metric
+from m4st.metrics import Metric, TranslationDataset
 
 
 class COMETScore(Metric):
@@ -17,42 +13,23 @@ class COMETScore(Metric):
 
     def __init__(self, model: str = "Unbabel/wmt22-comet-da", **predict_kwargs) -> None:
         self.comet = load_from_checkpoint(download_model(model))
-        self.model_name = model.replace("/", "_")  # for save paths
+        self.name = model.replace("/", "_")  # for save paths
         self.predict_kwargs = predict_kwargs  # passed to comet predict method
+        if self.comet.hparams.class_identifier == "regression_metric":
+            # older COMET models using the RegressionMetric class don't spescify
+            # input_segments in hparams
+            self.comet_req_inputs = ["src", "mt", "ref"]
+        else:
+            self.comet_req_inputs = self.comet.hparams.input_segments
+        field_mapping = {"src": "source", "mt": "prediction", "ref": "reference"}
+        self.data_req_inputs = [field_mapping[f] for f in self.comet_req_inputs]
+        # only preserve mapping for fields required by the model
+        self.field_mapping = dict(
+            zip(self.comet_req_inputs, self.data_req_inputs, strict=True)
+        )
 
-    def get_scores(
-        self, references: Series, predictions: Series, sources: Series
-    ) -> list:
-        data = [
-            {"src": s, "mt": mt, "ref": r}
-            for s, mt, r in zip(references, predictions, sources, strict=True)
-        ]
-        return self.comet.predict(data, **self.predict_kwargs)["scores"]
+    def get_scores(self, dataset: TranslationDataset) -> list[float]:
+        self.check_dataset_compatible(dataset)
 
-    def process_demetr_cat(
-        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        ref_txts = cat_data["eng_sent"]  # Human translation
-        mt_txts = cat_data["mt_sent"]  # Original machine translation
-        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
-        src_txts = cat_data["src_sent"]  # Source (original) text
-        src_langs = cat_data["lang_tag"]  # Source language
-        sentence_ids = cat_data["id"]
-
-        mt_scores = self.get_scores(ref_txts, mt_txts, src_txts)
-        d_scores = self.get_scores(ref_txts, dfluent_txts, src_txts)
-
-        results = {
-            index: {
-                "source_language": lang,
-                "mt_score": mt_score,
-                "disfluent_score": d_score,
-            }
-            for index, lang, mt_score, d_score in zip(
-                sentence_ids, src_langs, mt_scores, d_scores, strict=True
-            )
-        }
-
-        output_file = f"{self.model_name}_{input_fp}"
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
+        comet_inputs = dataset.to_samples(self.field_mapping)
+        return self.comet.predict(comet_inputs, **self.predict_kwargs)["scores"]

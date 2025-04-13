@@ -2,10 +2,16 @@
 Script for running BLEU, SacreBLEU, and BLASER 2.0 on the DEMETR dataset.
 """
 
+import json
 import os
-import typing
 
 import pandas as pd
+
+from m4st.metrics import Metric, TranslationDataset
+from m4st.metrics.blaser import BLASERScore
+from m4st.metrics.comet import COMETScore
+from m4st.metrics.metricx import MetricXScore
+from m4st.metrics.string import BLEUScore, ChrFScore
 
 
 class ProcessDEMETR:
@@ -47,58 +53,61 @@ class ProcessDEMETR:
         self.blaser_lang_code_config = blaser_lang_code_config
         self.comet_model_str = comet_model_str
         self.metricx_model_str = metricx_model_str
-
-        self.setup_metrics()
+        self.metrics_to_use = metrics_to_use
 
         print(f"Using metrics {self.metrics_to_use}")
 
-    @typing.no_type_check
-    def setup_metrics(self) -> None:
-        metrics = []
+    def setup_metric(self, metric_specifier: str) -> Metric:
+        if metric_specifier == "BLEU":
+            return BLEUScore()
+        if metric_specifier == "ChrF":
+            return ChrFScore(word_order=1)
+        if metric_specifier == "ChrF2":
+            return ChrFScore(word_order=2)
+        if metric_specifier == "COMET":
+            return COMETScore(model=self.comet_model_str)
+        if metric_specifier == "MetricX_ref":
+            return MetricXScore(qe=False, model=self.metricx_model_str)
+        if metric_specifier == "MetricX_qe":
+            return MetricXScore(qe=True, model=self.metricx_model_str)
+        if metric_specifier == "BLASER_ref":
+            return BLASERScore(lang_code_config=self.blaser_lang_code_config, qe=False)
+        if metric_specifier == "BLASER_qe":
+            return BLASERScore(lang_code_config=self.blaser_lang_code_config, qe=True)
 
-        if "BLEU" in self.metrics_to_use:
-            from m4st.metrics.string import BLEUScore
+        msg = f"Unknown metric specifier {metric_specifier}"
+        raise ValueError(msg)
 
-            metrics.append(BLEUScore())
+    @staticmethod
+    def save_metric_cat_scores(
+        metric: Metric,
+        mt_ds: TranslationDataset,
+        disfluent_ds: TranslationDataset,
+        output_path: str,
+    ) -> None:
+        """
+        Compute scores for a single metric on a single category of the DEMETR dataset.
+        """
 
-        if "BLASER_ref" in self.metrics_to_use:
-            from m4st.metrics.blaser import BLASERRefScore
+        mt_scores = metric.get_scores(mt_ds)
+        disfluent_scores = metric.get_scores(disfluent_ds)
 
-            metrics.append(
-                BLASERRefScore(lang_code_config=self.blaser_lang_code_config)
+        results = {
+            index: {
+                "source_language": lang,
+                "mt_score": mt_score,
+                "disfluent_score": d_score,
+            }
+            for index, lang, mt_score, d_score in zip(
+                mt_ds.index,
+                mt_ds.source_language,
+                mt_scores,
+                disfluent_scores,
+                strict=True,
             )
-
-        if "ChrF" in self.metrics_to_use:
-            from m4st.metrics.string import ChrFScore
-
-            metrics.append(ChrFScore(word_order=1))
-
-        if "ChrF2" in self.metrics_to_use:
-            from m4st.metrics.string import ChrFScore
-
-            metrics.append(ChrFScore(word_order=2))
-
-        if "BLASER_qe" in self.metrics_to_use:
-            from m4st.metrics.blaser import BLASERQEScore
-
-            metrics.append(BLASERQEScore(lang_code_config=self.blaser_lang_code_config))
-
-        if "COMET" in self.metrics_to_use:
-            from m4st.metrics.comet import COMETScore
-
-            metrics.append(COMETScore(model=self.comet_model_str))
-
-        if "MetricX_ref" in self.metrics_to_use:
-            from m4st.metrics.metricx import MetricXScore
-
-            metrics.append(MetricXScore(qe=False, model=self.metricx_model_str))
-
-        if "MetricX_qe" in self.metrics_to_use:
-            from m4st.metrics.metricx import MetricXScore
-
-            metrics.append(MetricXScore(qe=True, model=self.metricx_model_str))
-
-        self.metrics = metrics
+        }
+        with open(output_path, "w+") as file_to_write:
+            json.dump(results, file_to_write)
 
     def process_demetr_category(
         self,
@@ -109,8 +118,26 @@ class ProcessDEMETR:
         # Load sentences into dataframe
         demetr_df = pd.read_json(curr_ds_path)
 
-        for metric in self.metrics:  # type: ignore[has-type]
-            metric.process_demetr_cat(demetr_df, self.output_dir, cat_fp)
+        mt_ds = TranslationDataset(
+            reference=demetr_df["eng_sent"],  # Human translation
+            prediction=demetr_df["mt_sent"],  # Original machine translation
+            source=demetr_df["src_sent"],  # Source (original) text
+            source_language=demetr_df["lang_tag"],  # Source language
+            index=demetr_df["id"],  # Sentence ID
+        )
+        disfluent_ds = TranslationDataset(
+            reference=demetr_df["eng_sent"],  # Human translation
+            prediction=demetr_df["pert_sent"],  # Perturbed machine translation
+            source=demetr_df["src_sent"],  # Source (original) text
+            source_language=demetr_df["lang_tag"],  # Source language
+            index=demetr_df["id"],  # Sentence ID
+        )
+
+        for metric_specifier in self.metrics_to_use:  # type: ignore[has-type]
+            print(metric_specifier)
+            metric = self.setup_metric(metric_specifier)
+            output_file = os.path.join(self.output_dir, f"{metric.name}_{cat_fp}")
+            self.save_metric_cat_scores(metric, mt_ds, disfluent_ds, output_file)
 
     def process_demetr(
         self,
