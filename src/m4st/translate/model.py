@@ -39,12 +39,16 @@ class NLLBTranslateModel(TranslationModel):
         self.tokenizer = AutoTokenizer.from_pretrained(model_tag)
 
         self.supported_languages: list[str] = ["eng", "spa"]
-        assert target_lang_iso in self.supported_languages, "NLLB \
+        assert target_lang_iso in self.supported_languages, (
+            "NLLB \
                 Actually supports 200 languages, but this model only \
                 expects to work on Spanish and English."
-        assert source_lang_iso in self.supported_languages, "NLLB \
+        )
+        assert source_lang_iso in self.supported_languages, (
+            "NLLB \
                 Actually supports 200 languages, but this model only \
                 expects to work on Spanish and English."
+        )
 
         self.source_lang_iso: str = source_lang_iso
         self.target_lang_iso: str = target_lang_iso
