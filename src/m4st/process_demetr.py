@@ -2,32 +2,62 @@
 Script for running BLEU, SacreBLEU, and BLASER 2.0 on the DEMETR dataset.
 """
 
-import csv
+import json
 import os
 
-import numpy as np
 import pandas as pd
 
-from m4st.metrics import (
-    BLASERQEScore,
-    BLASERRefScore,
-    ChrFScore,
-    COMETQEScore,
-    COMETRefScore,
-    SacreBLEUScore,
-)
+from m4st.metrics import Metric, TranslationDataset
+from m4st.metrics.blaser import BLASERScore
+from m4st.metrics.comet import COMETScore
+from m4st.metrics.metricx import MetricXScore
+from m4st.metrics.string import BLEUScore, ChrFScore
 
 
 class ProcessDEMETR:
+    """Run the specified metrics over the DEMETR dataset from
+    https://github.com/marzenakrp/demetr.
+
+    output_dir --               the directory for storing output JSON files. One JSON
+                                file will be produced for each DEMETR category, for each
+                                metric.
+    demetr_root --              root directory for the DEMETR dataset. This can be
+                                downloaded from https://github.com/marzenakrp/demetr.
+                                The argument should point to the directory containing
+                                the input JSON files.
+    metrics_to_use --           list of metrics to run. Must be one or more of
+                                COMET, BLASER_ref, BLASER_qe, BLEU, ChrF, ChrF2.
+    blaser_lang_code_config -- config YAML mapping DEMETR language codes to SONAR/BLASER
+                                language codes. e.g. DEMETR may specify source language
+                                as "french" which requires the code "fra_Latn" for SONAR
+                                embedding generation.
+    comet_model_str --          COMET model to use, e.g. Unlabel/wmt22-comet-da
+                                (default), Unbabel/XCOMET-XL.
+
+    metricx_model_str --        MetricX 24 model to use, e.g.
+                                google/metricx-24-hybrid-xl-v2p6" (default),
+    """
+
     def __init__(
         self,
-        output_filepath: os.PathLike | str,
+        output_dir: os.PathLike | str,
         demetr_root: os.PathLike | str,
         metrics_to_use: list,
+        comet_model_str: str,
+        metricx_model_str: str,
     ) -> None:
-        # Conversion from DEMETR language tag to SONAR language code
-        self.language_codes = {
-            "chinese_simple": "zho_Hans",  # Hans for Simplified script
+        self.output_dir = output_dir
+        self.demetr_root = demetr_root
+        self.metrics_to_use = metrics_to_use
+        self.comet_model_str = comet_model_str
+        self.metricx_model_str = metricx_model_str
+        self.metrics_to_use = metrics_to_use
+
+        # mapping DEMETR language codes to SONAR/BLASER language codes.
+        # e.g. DEMETR may specify source language as "french" which requires the code
+        # "fra_Latn" for SONAR embedding generation.
+        self.demetr_to_sonar_lang_mapping = {
+            "chinese_simple": "zho_Hans",
             "czech": "ces_Latn",
             "french": "fra_Latn",
             "german": "deu_Latn",
@@ -38,121 +68,125 @@ class ProcessDEMETR:
             "russian": "rus_Cyrl",
             "spanish": "spa_Latn",
         }
-        self.output_path = output_filepath
-        self.demetr_root = demetr_root
-        self.metrics_to_use = metrics_to_use
-
-        colnames = ["category", *self.metrics_to_use]
-
-        with open(self.output_path, "w") as output_file:
-            writer = csv.writer(output_file)
-            writer.writerow(colnames)
-
-        if "SacreBLEU" in self.metrics_to_use:
-            self.sacre_bleu = SacreBLEUScore()
-        if "BLASER_ref" in self.metrics_to_use:
-            self.blaser_ref = BLASERRefScore()
-        if "BLASER_qe" in self.metrics_to_use:
-            self.blaser_qe = BLASERQEScore()
-        if "COMET_ref" in self.metrics_to_use:
-            self.comet_ref = COMETRefScore()
-        if "COMET_qe" in self.metrics_to_use:
-            self.comet_qe = COMETQEScore()
-        if "ChrF" in self.metrics_to_use:
-            self.chrf = ChrFScore(word_order=1)
-        if "ChrF2" in self.metrics_to_use:
-            self.chrf2 = ChrFScore(word_order=2)
+        self.sonar_to_demetr_lang_mapping = {
+            v: k for k, v in self.demetr_to_sonar_lang_mapping.items()
+        }
+        self.target_language = "eng_Latn"
 
         print(f"Using metrics {self.metrics_to_use}")
 
+    def setup_metric(self, metric_specifier: str) -> Metric:
+        if metric_specifier == "BLEU":
+            return BLEUScore()
+        if metric_specifier == "ChrF":
+            return ChrFScore(word_order=1)
+        if metric_specifier == "ChrF2":
+            return ChrFScore(word_order=2)
+        if metric_specifier == "COMET":
+            return COMETScore(model=self.comet_model_str)
+        if metric_specifier == "MetricX_ref":
+            return MetricXScore(qe=False, model=self.metricx_model_str)
+        if metric_specifier == "MetricX_qe":
+            return MetricXScore(qe=True, model=self.metricx_model_str)
+        if metric_specifier == "BLASER_ref":
+            return BLASERScore(qe=False)
+        if metric_specifier == "BLASER_qe":
+            return BLASERScore(qe=True)
+
+        msg = f"Unknown metric specifier {metric_specifier}"
+        raise ValueError(msg)
+
+    def save_metric_cat_scores(
+        self,
+        metric: Metric,
+        mt_ds: TranslationDataset,
+        disfluent_ds: TranslationDataset,
+        cat_fp: str,
+    ) -> None:
+        """
+        Compute scores for a single metric on a single category of the DEMETR dataset.
+        """
+
+        mt_scores = metric.get_scores(mt_ds)
+        disfluent_scores = metric.get_scores(disfluent_ds)
+
+        # results with SONAR language codes converted back to DEMETR codes
+        results = {
+            index: {
+                "source_language": self.sonar_to_demetr_lang_mapping[lang],
+                "mt_score": mt_score,
+                "disfluent_score": d_score,
+            }
+            for index, lang, mt_score, d_score in zip(
+                mt_ds.index,
+                mt_ds.source_language,
+                mt_scores,
+                disfluent_scores,
+                strict=True,
+            )
+        }
+
+        output_file = os.path.join(self.output_dir, f"{metric.name}_{cat_fp}")
+        with open(output_file, "w+") as file_to_write:
+            json.dump(results, file_to_write)
+
     def process_demetr_category(
         self,
-        category: int,
         cat_fp: str,
-        num_samples: int,
-        reverse_accuracy: bool = False,
     ) -> None:
         curr_ds_path = os.path.join(self.demetr_root, cat_fp)
 
         # Load sentences into dataframe
         demetr_df = pd.read_json(curr_ds_path)
 
-        ref_txts = demetr_df["eng_sent"]  # Human translation
-        mt_txts = demetr_df["mt_sent"]  # Original machine translation
-        src_txts = demetr_df["src_sent"]  # Foreign language source
-        dfluent_txts = demetr_df["pert_sent"]  # Perturbed machine translation
-        src_langs = demetr_df["lang_tag"]  # Source language
-        blaser_lang_codes = src_langs.replace(self.language_codes)
+        # target always english
+        target_language = [self.target_language] * len(demetr_df)
+        # Convert DEMETR source language codes to SONAR/BLASER language codes.
+        # (BLASER is the only metric the requires language codes)
+        source_language = [
+            self.demetr_to_sonar_lang_mapping[lang] for lang in demetr_df["lang_tag"]
+        ]
 
-        # Set up output arrays - typically (1000, n) where n is number of metrics
-        # Two sets of results for each metric, one fluent and one disfluent
-        mt_results = np.zeros((num_samples, len(self.metrics_to_use)))
-        dis_results = np.zeros((num_samples, len(self.metrics_to_use)))
+        mt_ds = TranslationDataset(
+            reference=demetr_df["eng_sent"],  # Human translation
+            prediction=demetr_df["mt_sent"],  # Original machine translation
+            source=demetr_df["src_sent"],  # Source (original) text
+            source_language=source_language,  # Source language
+            target_language=target_language,  # Target language
+            index=demetr_df["id"],  # Sentence ID
+        )
+        disfluent_ds = TranslationDataset(
+            reference=demetr_df["eng_sent"],  # Human translation
+            prediction=demetr_df["pert_sent"],  # Perturbed machine translation
+            source=demetr_df["src_sent"],  # Source (original) text
+            source_language=source_language,  # Source language
+            target_language=target_language,  # Target language
+            index=demetr_df["id"],  # Sentence ID
+        )
 
-        for j, metric in enumerate(self.metrics_to_use):
-            if metric == "COMET_ref":
-                mt_results[:, j] = self.comet_ref.get_scores(
-                    ref_txts, mt_txts, src_txts
-                )
-                dis_results[:, j] = self.comet_ref.get_scores(
-                    ref_txts, dfluent_txts, src_txts
-                )
-            elif metric == "COMET_qe":
-                mt_results[:, j] = self.comet_qe.get_scores(ref_txts, mt_txts, src_txts)
-                dis_results[:, j] = self.comet_qe.get_scores(
-                    ref_txts, dfluent_txts, src_txts
-                )
-            elif metric == "BLASER_ref":
-                mt_results[:, j] = self.blaser_ref.get_scores(
-                    ref_txts, mt_txts, src_txts, blaser_lang_codes
-                )
-                dis_results[:, j] = self.blaser_ref.get_scores(
-                    ref_txts, dfluent_txts, src_txts, blaser_lang_codes
-                )
-            elif metric == "BLASER_qe":
-                mt_results[:, j] = self.blaser_qe.get_scores(
-                    mt_txts, src_txts, blaser_lang_codes
-                )
-                dis_results[:, j] = self.blaser_qe.get_scores(
-                    dfluent_txts, src_txts, blaser_lang_codes
-                )
-            elif metric == "SacreBLEU":
-                mt_results[:, j] = self.sacre_bleu.get_scores(ref_txts, mt_txts)
-                dis_results[:, j] = self.sacre_bleu.get_scores(ref_txts, dfluent_txts)
-            elif metric == "ChrF":
-                mt_results[:, j] = self.chrf.get_scores(ref_txts, mt_txts)
-                dis_results[:, j] = self.chrf.get_scores(ref_txts, dfluent_txts)
-            elif metric == "ChrF2":
-                mt_results[:, j] = self.chrf2.get_scores(ref_txts, mt_txts)
-                dis_results[:, j] = self.chrf2.get_scores(ref_txts, dfluent_txts)
-            else:
-                print(f"Unknown metric {metric}")
-
-        mask = mt_results > dis_results
-        if reverse_accuracy:
-            results = np.count_nonzero(~mask, axis=0)
-        else:
-            results = np.count_nonzero(mask, axis=0)
-
-        results = results / num_samples * 100
-
-        results_str = [category, *results]
-
-        with open(self.output_path, "a") as output_file:
-            csv_writer = csv.writer(output_file)
-            csv_writer.writerow(results_str)
+        for metric_specifier in self.metrics_to_use:  # type: ignore[has-type]
+            print(metric_specifier)
+            metric = self.setup_metric(metric_specifier)
+            self.save_metric_cat_scores(metric, mt_ds, disfluent_ds, cat_fp)
 
     def process_demetr(
         self,
-        samples_per_cat: int = 1000,
         cats_to_process: list | None = None,
     ) -> pd.DataFrame:
+        """Iterates over the input files, processing each category in turn.
+
+        cats_to_process -- list of DEMETR categories to process. These are numbered
+                            1 to 35, and can be found in the DEMETR paper
+                            (https://arxiv.org/abs/2210.13746). Defaults to running
+                            over all categories.
+        """
         if cats_to_process is None:
             cats_to_process = []
 
         # Get list of JSON files
         # Each file contains sentences for a single DEMETR category
         dataset_list = os.listdir(self.demetr_root)
+        print(f"Found {len(dataset_list)} input files")
 
         for ds in dataset_list:
             ds_cat = int(ds.split("_")[1].strip("id"))
@@ -160,14 +194,4 @@ class ProcessDEMETR:
             if ds_cat in cats_to_process or not cats_to_process:
                 print(f"Processing input file {ds}")
 
-                # Accuracy metric is reversed for category 35 as in this case the
-                # reference text is passed as the disfluent translation and should
-                # therefore score more highly
-                reverse_acc = ds_cat == 35
-
-                self.process_demetr_category(
-                    ds_cat,
-                    ds,
-                    samples_per_cat,
-                    reverse_acc,
-                )
+                self.process_demetr_category(ds)

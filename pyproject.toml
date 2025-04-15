@@ -26,25 +26,30 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
+
 dependencies = [
-    "tqdm",
-    "requests",
+    "datasets>=3.5.0",
     "evaluate>=0.4.3",
-    "fairseq2>=0.2.0",
-    "filelock>=3.0.12",
+    "fairseq2>=0.4.5",
+    "filelock>=3.18.0",
     "ipykernel>=6.29.5",
+    "librosa>=0.11.0",
     "nltk>=3.9.1",
+    "ollama>=0.4.7",
     "pandas>=2.2.3",
-    "sacrebleu>=2.4.3",
+    "protobuf>=4.25.6",
+    "pydub>=0.25.1",
+    "requests>=2.32.3",
+    "sacrebleu>=2.5.1",
     "seaborn>=0.13.2",
-    "sonar-space>=0.2.0",
-    "torch>=2.2.2",
-    "torchvision>=0.15.2",
-    "unbabel-comet==2.2.3",
-    "librosa>=0.10.2.post1",
-    "sentencepiece",
-    "transformers",
-    "pydub"
+    "sentencepiece>=0.2.0",
+    "sonar-space>=0.4.0",
+    "torch>=2.6.0",
+    "torchaudio>=2.6.0",
+    "torchvision>=0.21.0",
+    "tqdm>=4.67.1",
+    "transformers[torch]>=4.51.1",
+    "unbabel-comet>=2.2.6",
 ]
 
 [project.optional-dependencies]
@@ -82,7 +87,7 @@ port.exclude_lines = [
 
 [tool.mypy]
 files = ["src", "tests"]
-python_version = "3.10"
+python_version = "3.11"
 show_error_codes = true
 warn_unreachable = true
 disallow_untyped_defs = false
