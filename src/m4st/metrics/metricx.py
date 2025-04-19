@@ -1,4 +1,4 @@
-# Most of this file is taken from https://github.com/google-research/metricx
+# Much of this file is taken from https://github.com/google-research/metricx
 # It has been adapted to work as a standalone metric in the m4st package using the
 # MetricXScore class. The original license is retained below.
 # Copyright 2024 Google LLC
@@ -18,14 +18,10 @@
 
 import copy
 import dataclasses
-import json
-import os
 import tempfile
 import warnings
 
 import datasets
-import numpy as np
-import pandas as pd
 import torch
 from torch import nn
 from transformers import AutoTokenizer, Trainer, TrainingArguments
@@ -37,75 +33,16 @@ from transformers.models.mt5.modeling_mt5 import (
     MT5Stack,
 )
 
-from m4st.metrics import Metric
+from m4st.metrics import Metric, TranslationDataset
 
-
-########################
-# Original MetricX code
-########################
-def get_dataset(
-    input_file: str,
-    tokenizer,
-    max_input_length: int,
-    is_qe: bool,
-    device: str | torch.device | None = None,
-):
-    """Gets the test dataset for prediction.
-
-    If `is_qe` is true, the input data must have "hypothesis" and "source" fields.
-    If it is false, there must be "hypothesis" and "reference" fields.
-
-    Args:
-      input_file: The path to the jsonl input file.
-      tokenizer: The tokenizer to use.
-      max_input_length: The maximum input sequence length.
-      device: The ID of the device to put the PyTorch tensors on.
-      is_qe: Indicates whether the metric is a QE metric or not.
-
-    Returns:
-      The dataset.
-    """
-
-    def _make_input(example):
-        if is_qe:
-            example["input"] = (
-                "source: " + example["source"] + " candidate: " + example["hypothesis"]
-            )
-        else:
-            example["input"] = (
-                "source: "
-                + example["source"]
-                + " candidate: "
-                + example["hypothesis"]
-                + " reference: "
-                + example["reference"]
-            )
-        return example
-
-    def _tokenize(example):
-        return tokenizer(
-            example["input"],
-            max_length=max_input_length,
-            truncation=True,
-            padding=False,
-        )
-
-    def _remove_eos(example):
-        example["input_ids"] = example["input_ids"][:-1]
-        example["attention_mask"] = example["attention_mask"][:-1]
-        return example
-
-    ds = datasets.load_dataset("json", data_files={"test": input_file})
-    ds = ds.map(_make_input)
-    ds = ds.map(_tokenize)
-    ds = ds.map(_remove_eos)
-    ds.set_format(
-        type="torch",
-        columns=["input_ids", "attention_mask"],
-        device=device,
-        output_all_columns=True,
-    )
-    return ds
+METRICX_TOKENIZERS = {
+    "google/metricx-24-hybrid-xxl-v2p6": "google/mt5-xxl",
+    "google/metricx-24-hybrid-xl-v2p6": "google/mt5-xl",
+    "google/metricx-24-hybrid-large-v2p6": "google/mt5-large",
+    "google/metricx-24-hybrid-xxl-v2p6-bfloat16": "google/mt5-xxl",
+    "google/metricx-24-hybrid-xl-v2p6-bfloat16": "google/mt5-xl",
+    "google/metricx-24-hybrid-large-v2p6-bfloat16": "google/mt5-large",
+}
 
 
 @dataclasses.dataclass
@@ -192,11 +129,11 @@ class MT5ForRegression(MT5PreTrainedModel):
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
-                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
-                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
+                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,  # type: ignore[misc]
+                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,  # type: ignore[misc]
             )
 
-            hidden_states = encoder_outputs[0]  # type: ignore[index]
+        hidden_states = encoder_outputs[0]  # type: ignore[index]
 
         if self.model_parallel:
             torch.cuda.set_device(self.decoder.first_device)
@@ -271,66 +208,104 @@ class MT5ForRegression(MT5PreTrainedModel):
         )
 
 
-##################
-# M4ST added code
-##################
-metricx_tokenizers = {
-    "google/metricx-24-hybrid-xxl-v2p6": "google/mt5-xxl",
-    "google/metricx-24-hybrid-xl-v2p6": "google/mt5-xl",
-    "google/metricx-24-hybrid-large-v2p6": "google/mt5-large",
-    "google/metricx-24-hybrid-xxl-v2p6-bfloat16": "google/mt5-xxl",
-    "google/metricx-24-hybrid-xl-v2p6-bfloat16": "google/mt5-xl",
-    "google/metricx-24-hybrid-large-v2p6-bfloat16": "google/mt5-large",
-}
-
-
 class MetricXScore(Metric):
     """Applies MetricX 2024: https://github.com/google-research/metricx"""
 
     def __init__(
         self,
-        model: str = "google/metricx-24-hybrid-xl-v2p6",
+        model: str = "google/metricx-24-hybrid-large-v2p6",
         max_input_length: int = 1536,
         batch_size: int = 1,
         qe: bool = False,
         use_cpu: bool = False,
     ) -> None:
-        if model not in metricx_tokenizers:
+        if model not in METRICX_TOKENIZERS:
             msg = f"{model} is not a known MetricX model."
             raise KeyError(msg)
 
-        self.tokenizer = AutoTokenizer.from_pretrained(metricx_tokenizers[model])
+        self.tokenizer = AutoTokenizer.from_pretrained(METRICX_TOKENIZERS[model])
         self.model = MT5ForRegression.from_pretrained(model)
         self.max_input_length = max_input_length
         self.batch_size = batch_size
         self.qe = qe
         self.use_cpu = use_cpu
+        self.name = model.replace("/", "_")  # for output file paths
 
-        self.model_name = model.replace("/", "_")  # for output file paths
+        self.data_req_inputs = ["prediction", "source"]
+        self.metricx_req_inputs = ["hypothesis", "source"]
         if self.qe:
-            self.model_name += "_qe"
+            self.name += "_qe"
         else:
-            self.model_name += "_ref"
+            self.name += "_ref"
+            self.data_req_inputs.append("reference")
+            self.metricx_req_inputs.append("reference")
 
-    def preprocess(
-        self, cat_data: pd.DataFrame, src_col: str, pred_col: str, ref_col: str
-    ) -> datasets.Dataset:
-        with tempfile.TemporaryDirectory() as tempdir:
-            fname = f"{tempdir}/cat_data.json"
-            with open(fname, "a") as f:
-                for _, row in cat_data.iterrows():
-                    f.write(
-                        json.dumps(
-                            {
-                                "source": row[src_col],
-                                "hypothesis": row[pred_col],
-                                "reference": row[ref_col],
-                            }
-                        )
-                    )
-            return get_dataset(fname, self.tokenizer, self.max_input_length, self.qe)
+        self.field_mapping = dict(
+            zip(self.metricx_req_inputs, self.data_req_inputs, strict=True)
+        )
 
-    def compute(self, ds: datasets.Dataset) -> list[float]:
+    def preprocess(self, hf_dataset: datasets.Dataset) -> datasets.Dataset:
+        """Gets the test dataset for prediction.
+
+        If `is_qe` is true, the input data must have "hypothesis" and "source" fields.
+        If it is false, there must be "hypothesis" and "reference" fields.
+
+        Args:
+            dataset: TranslationDataset instance
+
+        Returns:
+            Preprocessed and tokenized HuggingFace dataset compatible with MetricX.
+        """
+
+        def _make_input(example):
+            if self.qe:
+                example["input"] = (
+                    "source: "
+                    + example["source"]
+                    + " candidate: "
+                    + example["hypothesis"]
+                )
+            else:
+                example["input"] = (
+                    "source: "
+                    + example["source"]
+                    + " candidate: "
+                    + example["hypothesis"]
+                    + " reference: "
+                    + example["reference"]
+                )
+            return example
+
+        def _tokenize(example):
+            return self.tokenizer(
+                example["input"],
+                max_length=self.max_input_length,
+                truncation=True,
+                padding=False,
+            )
+
+        def _remove_eos(example):
+            example["input_ids"] = example["input_ids"][:-1]
+            example["attention_mask"] = example["attention_mask"][:-1]
+            return example
+
+        hf_dataset = hf_dataset.map(_make_input)
+        hf_dataset = hf_dataset.map(_tokenize)
+        hf_dataset = hf_dataset.map(_remove_eos)
+        hf_dataset.set_format(
+            type="torch",
+            columns=["input_ids", "attention_mask"],
+            device="cpu" if self.use_cpu else None,
+            output_all_columns=True,
+        )
+        return hf_dataset
+
+    def get_scores(self, dataset: TranslationDataset) -> list[float]:
+        self.check_dataset_compatible(dataset)
+
+        hf_dataset = datasets.Dataset.from_dict(dataset.to_dict(self.field_mapping))
+        hf_dataset = self.preprocess(hf_dataset)
+
         with tempfile.TemporaryDirectory() as tempdir:
             training_args = TrainingArguments(
                 output_dir=tempdir,
@@ -338,35 +313,6 @@ class MetricXScore(Metric):
                 use_cpu=self.use_cpu,
             )
             trainer = Trainer(model=self.model, args=training_args)
-            predictions, _, _ = trainer.predict(test_dataset=ds["test"])
+            predictions, _, _ = trainer.predict(test_dataset=hf_dataset)
 
         return [float(pred) for pred in predictions]
-
-    def get_scores(
-        self, cat_data: pd.DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        output_file = f"{self.model_name}_{input_fp}"
-        sentence_ids = np.array(cat_data["id"])
-        src_langs = list(cat_data["lang_tag"])
-
-        mt_data = self.preprocess(
-            cat_data, src_col="src_sent", pred_col="mt_sent", ref_col="eng_sent"
-        )
-        mt_scores = self.compute(mt_data)
-
-        d_data = self.preprocess(
-            cat_data, src_col="src_sent", pred_col="pert_sent", ref_col="eng_sent"
-        )
-        d_scores = self.compute(d_data)
-
-        results = {}
-
-        for i in range(len(mt_scores)):
-            results[int(sentence_ids[[i]])] = {
-                "source_language": src_langs[i],
-                "mt_score": mt_scores[i],
-                "disfluent_score": d_scores[i],
-            }
-
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)

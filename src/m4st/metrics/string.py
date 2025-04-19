@@ -1,10 +1,7 @@
-import json
-import os
-
 import evaluate
-from pandas import DataFrame
+from tqdm import tqdm
 
-from m4st.metrics import Metric
+from m4st.metrics import Metric, TranslationDataset
 
 
 class ChrFScore(Metric):
@@ -16,71 +13,37 @@ class ChrFScore(Metric):
     def __init__(self, word_order: int = 0) -> None:
         self.chrf = evaluate.load("chrf")
         self.word_order = word_order
+        self.name = f"ChrF{self.word_order}" if word_order > 0 else "ChrF"
+        self.data_req_inputs = ["prediction", "reference"]
 
-    def get_scores(
-        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        output_file = f"ChrF{self.word_order}_{input_fp}"
-        results = {}
-        # ID, language, mt_score, perturbed_score
-        ref_txts = cat_data["eng_sent"]  # Human translation
-        mt_txts = cat_data["mt_sent"]  # Original machine translation
-        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
-        src_langs = cat_data["lang_tag"]  # Source language
+    def get_scores(self, dataset: TranslationDataset) -> list[float]:
+        self.check_dataset_compatible(dataset)
 
-        for index, ref_txt in ref_txts.items():
-            mt_txt = mt_txts[index]
-            d_txt = dfluent_txts[index]
-            lang = src_langs[index]
-            mt_score = self.chrf.compute(
-                predictions=[mt_txt],
-                references=[[ref_txt]],
+        return [
+            self.chrf.compute(
+                predictions=[sample["prediction"]],
+                references=[[sample["reference"]]],
                 word_order=self.word_order,
-            )
-            d_score = self.chrf.compute(
-                predictions=[d_txt],
-                references=[[ref_txt]],
-                word_order=self.word_order,
-            )
-            results[int(cat_data["id"][index])] = {
-                "source_language": lang,
-                "mt_score": mt_score["score"],
-                "disfluent_score": d_score["score"],
-            }
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
+                eps_smoothing=True,
+            )["score"]
+            for sample in tqdm(dataset)
+        ]
 
 
 class BLEUScore(Metric):
     """Applies SacreBleu from the evaluate library."""
 
     def __init__(self) -> None:
+        self.name = "BLEU"
         self.bleu = evaluate.load("sacrebleu")
+        self.data_req_inputs = ["prediction", "reference"]
 
-    def get_scores(
-        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        output_file = f"BLEU_{input_fp}"
-        ref_txts = cat_data["eng_sent"]  # Human translation
-        mt_txts = cat_data["mt_sent"]  # Original machine translation
-        dfluent_txts = cat_data["pert_sent"]  # Perturbed machine translation
-        src_langs = cat_data["lang_tag"]  # Source language
+    def get_scores(self, dataset: TranslationDataset) -> list[float]:
+        self.check_dataset_compatible(dataset)
 
-        results = {}
-
-        # SacreBleu doesn't seem to support batching that isn't document-level, so
-        # each sentence must be run through separately
-        for index, ref_txt in ref_txts.items():
-            mt_txt = mt_txts[index]
-            d_txt = dfluent_txts[index]
-            lang = src_langs[index]
-            mt_score = self.bleu.compute(predictions=[mt_txt], references=[[ref_txt]])
-            d_score = self.bleu.compute(predictions=[d_txt], references=[[ref_txt]])
-
-            results[int(cat_data["id"][index])] = {
-                "source_language": lang,
-                "mt_score": mt_score["score"],
-                "disfluent_score": d_score["score"],
-            }
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
+        return [
+            self.bleu.compute(
+                predictions=[sample["prediction"]], references=[[sample["reference"]]]
+            )["score"]
+            for sample in tqdm(dataset)
+        ]
