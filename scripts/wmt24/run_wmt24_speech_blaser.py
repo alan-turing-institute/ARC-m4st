@@ -61,93 +61,79 @@ def main(args: dict) -> None:
     from_lang_blaser = map_lang[from_lang]
     to_lang_blaser = map_lang[to_lang]
 
-    # List of (line index, path) tuples for this translation pair
+    # List of (line index, path) tuples for this translation pair (~111 lines)
     speech_sources = [(i, s) for i, s in enumerate(srcs_list) if "speech" in s]
 
     mt_sys_names = []
-    audio_files = []
-    src_texts = []
-    ref_texts = []
-    mt_texts = []
+    mt_audio_files = []
+    mt_src_texts = []
+    mt_ref_texts = []
+    mt_translations = []
+    mt_source_languages = []
+    mt_ref_languages = []
 
     # For all sentences in this translation pair set in the speech domain
-    for speech_src_details in speech_sources:
+    for src_idx, src_name in speech_sources:
         # Get identifying filename for the corresponding .wav
-        spch_identifier = speech_src_details[1].split("_", 1)[1].strip("\n")
+        spch_identifier = src_name.split("_", 1)[1].strip("\n")
         audio_file = f"{src_audio_dir}/{audio_subdir}/{spch_identifier}.wav"
-        audio_files.append(audio_file)
 
         # Get corresponding source sentence
         src_sent_file = f"{srcs_path}/{from_lang}-{to_lang}.txt"
         with open(src_sent_file) as input_file:
             sentences = input_file.readlines()
-            src_texts.append(sentences[speech_src_details[0]])
+            src_text = sentences[src_idx]
 
         # Get corresponding reference sentence
         ref_sent_file = f"{refs_path}/{from_lang}-{to_lang}.refA.txt"
         with open(ref_sent_file) as input_file:
             sentences = input_file.readlines()
-            ref_texts.append(sentences[speech_src_details[0]])
+            ref_text = sentences[src_idx]
 
         # Collect all machine translated sentences
         # For each translation system, select the line that matches the source
-        mt_texts_sent = []
-        mt_system_sent = []
         mt_sent_dir = f"{mt_path}/{from_lang}-{to_lang}"
 
         # For each file containing the results from one MT system
         for mt_sent_file in os.scandir(mt_sent_dir):  # ~25
             mt_name = os.path.basename(mt_sent_file).replace(".txt", "")
-            mt_system_sent.append(mt_name)
             with open(mt_sent_file) as input_file:
                 sentences = input_file.readlines()
-                mt_texts_sent.append(sentences[speech_src_details[0]])
+                translation = sentences[src_idx]
 
-        mt_texts.append(mt_texts_sent)
-        mt_sys_names.extend(mt_system_sent)
+            mt_sys_names.append(mt_name)
+            mt_audio_files.append(audio_file)
+            mt_src_texts.append(src_text)
+            mt_ref_texts.append(ref_text)
+            mt_translations.append(translation)
+            mt_source_languages.append(from_lang_blaser)
+            mt_ref_languages.append(to_lang_blaser)
 
-    print(len(mt_texts))  # 111, 25 (num_sentences, num_translation_models)
-    print(len(mt_sys_names))  # 2331 (num_sentences * num_translation models)
+    print(len(mt_translations))  # 2331 (num_sentences * num_translation models)
 
-    print("Processing machine translations...")
-
-    # au, src, ref should all have length 111
-    print(len(audio_files), len(src_texts), len(ref_texts))
-
-    # There are multiple sets of machine translations
-    # For each set of source, translation we apply the metric n times, once for each
-    # translation model (n = ~25, seems to vary slightly by language)
-    # mt_texts has shape (num_sentences, num_translation_models)
-    result_audio_src = []
-    result_txt_src = []
-    for mt_set in mt_texts:
-        # Run BLASER on audio sources
-        blaser = BLASERScore(qe=False, audio_source=True)
-        result_audio_src.append(
-            blaser.get_scores(
-                TranslationDataset(
-                    source=audio_files,
-                    reference=ref_texts,
-                    prediction=mt_set,
-                    source_language=[from_lang_blaser] * len(audio_files),
-                    target_language=[to_lang_blaser] * len(audio_files),
-                )
-            )
+    print("Processing machine translations with audio source...")
+    blaser = BLASERScore(qe=False, audio_source=True)
+    result_audio_src = blaser.get_scores(
+        TranslationDataset(
+            source=mt_audio_files,
+            reference=mt_ref_texts,
+            prediction=mt_translations,
+            source_language=mt_source_languages,
+            target_language=mt_ref_languages,
         )
+    )
 
-        # Run BLASER on text sources
-        blaser = BLASERScore(qe=False, audio_source=False)
-        result_txt_src.append(
-            blaser.get_scores(
-                TranslationDataset(
-                    source=src_texts,
-                    reference=ref_texts,
-                    prediction=mt_set,
-                    source_language=[from_lang_blaser] * len(src_texts),
-                    target_language=[to_lang_blaser] * len(src_texts),
-                )
-            )
+    print("Processing machine translations with text source...")
+    blaser = BLASERScore(qe=False, audio_source=False)
+    result_txt_src = blaser.get_scores(
+        TranslationDataset(
+            source=mt_src_texts,
+            reference=mt_ref_texts,
+            prediction=mt_translations,
+            source_language=mt_source_languages,
+            target_language=mt_ref_languages,
         )
+    )
 
     results = pd.DataFrame(
         {

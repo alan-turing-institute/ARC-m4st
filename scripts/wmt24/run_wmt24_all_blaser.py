@@ -66,29 +66,38 @@ def main(args: dict) -> None:
                     refs = input_file.readlines()
 
                 mt_names = []
+                mt_results = []
+                mt_translations = []
+                mt_sources = []
+                mt_refs = []
+                mt_source_languages = []
+                mt_ref_languages = []
 
                 # List of MT system results for this language pair
                 for mt_doc in os.scandir(mt_path):
                     mt_name = os.path.basename(mt_doc).replace(".txt", "")
-                    mt_name_list = [mt_name] * len(sources)
-                    mt_names.extend(mt_name_list)
-                    mt_output_file = f"{lp_output_path}/BLASERRef-{refset}.seg.score"
+                    mt_names.extend([mt_name] * len(sources))
                     with open(mt_doc) as input_file:
-                        translations = input_file.readlines()
+                        mt_translations.extend(input_file.readlines())
+                    mt_sources.extend(sources)
+                    mt_refs.extend(refs)
+                    mt_source_languages.extend([from_lang_blaser] * len(sources))
+                    mt_ref_languages.extend([to_lang_blaser] * len(sources))
 
-                    dataset = TranslationDataset(
-                        source=sources,
-                        reference=refs,
-                        prediction=translations,
-                        source_language=[from_lang_blaser] * len(sources),
-                        target_language=[to_lang_blaser] * len(sources),
-                    )
+                dataset = TranslationDataset(
+                    source=mt_sources,
+                    reference=mt_refs,
+                    prediction=mt_translations,
+                    source_language=mt_source_languages,
+                    target_language=mt_ref_languages,
+                )
 
-                    mt_results = blaser.get_scores(dataset)
+                mt_results = blaser.get_scores(dataset)
 
                 all_sys_results = pd.DataFrame(
                     {"system": mt_names, "score": mt_results}
                 )
+                mt_output_file = f"{lp_output_path}/BLASERRef-{refset}.seg.score"
                 all_sys_results.to_csv(mt_output_file, header=False, index=False)
 
 
