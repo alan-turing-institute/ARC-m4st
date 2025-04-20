@@ -6,11 +6,9 @@ import argparse
 import os
 
 import pandas as pd
-from sonar.inference_pipelines.speech import SpeechToEmbeddingModelPipeline
-from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
-from sonar.models.blaser.loader import load_blaser_model
-from sonar.models.sonar_speech.loader import load_sonar_speech_model
-from sonar.models.sonar_text import load_sonar_text_encoder_model
+
+from m4st.metrics.base import TranslationDataset
+from m4st.metrics.blaser import BLASERScore
 
 map_lang = {
     "zh": "zho_Hans",
@@ -49,37 +47,11 @@ def main(args: dict) -> None:
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    # Set up BLASER model and pipelines
-    # Need separate pipelines for generating speech and text embeddings
-    blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
-
     lang_pair = os.path.basename(src_doc)[:5].split("-")
     from_lang = lang_pair[0]  # Language translating from
     to_lang = lang_pair[1]  # Language translating to
 
-    if from_lang == "ja":
-        speech_encoder = "sonar_speech_encoder_jpn"
-    elif from_lang == "en":
-        speech_encoder = "sonar_speech_encoder_eng"
-
-    print("Setting up model pipelines...")
-
-    speech_encoder_model = load_sonar_speech_model(speech_encoder).eval()
-    text_encoder_model = load_sonar_text_encoder_model(
-        "text_sonar_basic_encoder",
-    ).eval()
-
-    s2vec_model = SpeechToEmbeddingModelPipeline(encoder=speech_encoder_model)
-    t2vec_model = TextToEmbeddingModelPipeline(
-        encoder=text_encoder_model, tokenizer="text_sonar_basic_encoder"
-    )
-
     print(f"Processing sources from {src_doc}")
-
-    au_src_results = []
-    txt_src_results = []
-    mt_sys_names = []
-
     output_file = os.path.join(output_dir, f"{from_lang}-{to_lang}_BLASER.csv")
 
     audio_subdir = f"test-{from_lang}-speech-audio-resampled"
@@ -92,6 +64,7 @@ def main(args: dict) -> None:
     # List of (line index, path) tuples for this translation pair
     speech_sources = [(i, s) for i, s in enumerate(srcs_list) if "speech" in s]
 
+    mt_sys_names = []
     audio_files = []
     src_texts = []
     ref_texts = []
@@ -136,50 +109,51 @@ def main(args: dict) -> None:
     print(len(mt_texts))  # 111, 25 (num_sentences, num_translation_models)
     print(len(mt_sys_names))  # 2331 (num_sentences * num_translation models)
 
-    # Get embeddings for source text, references, and source audio
-    # These will be common across translation models
-    print("Getting audio source embeddings...")
-    audio_src_embs = s2vec_model.predict(audio_files)
-    print("Getting reference embeddings...")
-    ref_embs = t2vec_model.predict(ref_texts, source_lang=to_lang_blaser)
-    print("Getting text source embeddings...")
-    src_embs = t2vec_model.predict(src_texts, source_lang=from_lang_blaser)
-
     print("Processing machine translations...")
 
     # au, src, ref should all have length 111
-    print(len(audio_src_embs), len(src_embs), len(ref_embs))
+    print(len(audio_files), len(src_texts), len(ref_texts))
 
     # There are multiple sets of machine translations
     # For each set of source, translation we apply the metric n times, once for each
     # translation model (n = ~25, seems to vary slightly by language)
     # mt_texts has shape (num_sentences, num_translation_models)
-    mt_ix = 0
-    for au_emb, src_emb, ref_emb in zip(
-        audio_src_embs, src_embs, ref_embs, strict=False
-    ):
-        mt_set = mt_texts[mt_ix]
+    result_audio_src = []
+    result_txt_src = []
+    for mt_set in mt_texts:
+        # Run BLASER on audio sources
+        blaser = BLASERScore(qe=False, audio_source=True)
+        result_audio_src.append(
+            blaser.get_scores(
+                TranslationDataset(
+                    source=audio_files,
+                    reference=ref_texts,
+                    prediction=mt_set,
+                    source_language=[from_lang_blaser] * len(audio_files),
+                    target_language=[to_lang_blaser] * len(audio_files),
+                )
+            )
+        )
 
-        # Get embeddings for all translated versions of this sentence
-        mt_embs = t2vec_model.predict(mt_set, source_lang=to_lang_blaser)
-        for mt_emb in mt_embs:
-            result_txt = blaser_ref(
-                src=src_emb[None, :], ref=ref_emb[None, :], mt=mt_emb[None, :]
-            ).item()
-            result_audio = blaser_ref(
-                src=au_emb[None, :], ref=ref_emb[None, :], mt=mt_emb[None, :]
-            ).item()
-            au_src_results.append(result_audio)
-            txt_src_results.append(result_txt)
-        mt_ix += 1  # noqa: SIM113
-
-    print(len(mt_sys_names), len(au_src_results), len(txt_src_results))
+        # Run BLASER on text sources
+        blaser = BLASERScore(qe=False, audio_source=False)
+        result_txt_src.append(
+            blaser.get_scores(
+                TranslationDataset(
+                    source=src_texts,
+                    reference=ref_texts,
+                    prediction=mt_set,
+                    source_language=[from_lang_blaser] * len(src_texts),
+                    target_language=[to_lang_blaser] * len(src_texts),
+                )
+            )
+        )
 
     results = pd.DataFrame(
         {
             "mt_system": mt_sys_names,
-            "audio_source": au_src_results,
-            "text_source": txt_src_results,
+            "audio_source": result_audio_src,
+            "text_source": result_txt_src,
         }
     )
     results.to_csv(output_file, index=False)

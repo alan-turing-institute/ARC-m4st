@@ -4,9 +4,9 @@ import argparse
 import os
 
 import pandas as pd
-from sonar.inference_pipelines.text import TextToEmbeddingModelPipeline
-from sonar.models.blaser.loader import load_blaser_model
-from sonar.models.sonar_text import load_sonar_text_encoder_model
+
+from m4st.metrics.base import TranslationDataset
+from m4st.metrics.blaser import BLASERScore
 
 map_lang = {
     "zh": "zho_Hans",
@@ -40,17 +40,8 @@ def main(args: dict) -> None:
     if not os.path.isdir(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    # Set up BLASER model and pipeline
-    blaser_ref = load_blaser_model("blaser_2_0_ref").eval()
-
-    text_encoder_model = load_sonar_text_encoder_model(
-        "text_sonar_basic_encoder",
-        device="cuda",
-    ).eval()
-
-    t2vec_model = TextToEmbeddingModelPipeline(
-        encoder=text_encoder_model, tokenizer="text_sonar_basic_encoder"
-    )
+    # Set up BLASER
+    blaser = BLASERScore(qe=False, audio_source=False)
 
     if os.path.isdir(mt_path):
         # Output is stored as [output dir]/[xx-xx]/[MT system].[level].score
@@ -74,33 +65,26 @@ def main(args: dict) -> None:
                 with open(refs_doc) as input_file:
                     refs = input_file.readlines()
 
-                # Get embeddings for sources
-                src_embs = t2vec_model.predict(sources, source_lang=from_lang_blaser)
-
-                # Get embeddings for references
-                ref_embs = t2vec_model.predict(refs, source_lang=to_lang_blaser)
-
-                mt_results = []
                 mt_names = []
 
                 # List of MT system results for this language pair
                 for mt_doc in os.scandir(mt_path):
                     mt_name = os.path.basename(mt_doc).replace(".txt", "")
-                    mt_name_list = [mt_name] * len(src_embs)
+                    mt_name_list = [mt_name] * len(sources)
                     mt_names.extend(mt_name_list)
                     mt_output_file = f"{lp_output_path}/BLASERRef-{refset}.seg.score"
                     with open(mt_doc) as input_file:
                         translations = input_file.readlines()
 
-                    # Get embeddings for translations from this MT system
-                    t_embs = t2vec_model.predict(
-                        translations, source_lang=to_lang_blaser
+                    dataset = TranslationDataset(
+                        source=sources,
+                        reference=refs,
+                        prediction=translations,
+                        source_language=[from_lang_blaser] * len(sources),
+                        target_language=[to_lang_blaser] * len(sources),
                     )
-                    for src, ref, mt in zip(src_embs, ref_embs, t_embs, strict=False):
-                        result = blaser_ref(
-                            src=src[None, :], ref=ref[None, :], mt=mt[None, :]
-                        ).item()
-                        mt_results.append(result)
+
+                    mt_results = blaser.get_scores(dataset)
 
                 all_sys_results = pd.DataFrame(
                     {"system": mt_names, "score": mt_results}
