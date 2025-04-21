@@ -75,9 +75,14 @@ def get_group_hypotheses(group: str) -> list[str]:
     return hypotheses
 
 
+def get_audio_path() -> str:
+    """Get path to the audio file."""
+    return "data/inputs/source.wav"
+
+
 def get_source_audio() -> tuple[torch.tensor, int]:
     """Get source audio."""
-    return torchaudio.load("data/inputs/source.wav")
+    return torchaudio.load(get_audio_path())
 
 
 def get_group():
