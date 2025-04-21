@@ -99,14 +99,14 @@ class BLASERScore(Metric):
                     unique_audio_sources.append(waveform)
 
                 unique_speech_embeds = speech_embedder.predict(
-                    unique_audio_sources
+                    unique_audio_sources, progress_bar=True
                 )  # shape: (n_unique_sources, embed_dim)
                 embeds["src"] = unique_speech_embeds[
                     source_idx_lang
                 ]  # shape: (n_sources, embed_dim)
             else:
                 unique_text_embeds = self.text_embedder.predict(
-                    unique_sources_lang, source_lang=src_lang
+                    unique_sources_lang, source_lang=src_lang, progress_bar=True
                 )  # shape: (n_unique_sources, embed_dim)
 
                 embeds["src"] = unique_text_embeds[
@@ -117,7 +117,7 @@ class BLASERScore(Metric):
                 preds_lang, return_inverse=True
             )
             unique_preds_embeds = self.text_embedder.predict(
-                unique_preds_lang, source_lang=tgt_lang
+                unique_preds_lang, source_lang=tgt_lang, progress_bar=True
             )  # shape: (n_unique_preds, embed_dim)
             embeds["mt"] = unique_preds_embeds[
                 preds_idx_lang
@@ -130,7 +130,7 @@ class BLASERScore(Metric):
                     refs_lang, return_inverse=True
                 )
                 unique_refs_embeds = self.text_embedder.predict(
-                    unique_refs_lang, source_lang=tgt_lang
+                    unique_refs_lang, source_lang=tgt_lang, progress_bar=True
                 )  # shape: (n_unique_refs, embed_dim)
                 embeds["ref"] = unique_refs_embeds[
                     ref_idx_lang

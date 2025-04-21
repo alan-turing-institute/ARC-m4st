@@ -41,7 +41,7 @@ def main(args: dict) -> None:
     # Source mappings
     src_doc = f"{wmt_root}/documents/{lang_pair}.docs"
 
-    # Translations (English-German)
+    # Translations
     mt_path = f"{wmt_root}/system-outputs"
 
     if not os.path.isdir(output_dir):
@@ -54,7 +54,7 @@ def main(args: dict) -> None:
     print(f"Processing sources from {src_doc}")
     output_file = os.path.join(output_dir, f"{from_lang}-{to_lang}_BLASER.csv")
 
-    audio_subdir = f"test-{from_lang}-speech-audio-resampled"
+    audio_subdir = f"test-{from_lang}-speech-audio"
     with open(src_doc) as input_file:
         srcs_list = input_file.readlines()
 
