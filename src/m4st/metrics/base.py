@@ -27,7 +27,7 @@ class TranslationDataset:
         # Check that all fields are the same length
         pred_length = len(self.prediction)
         for field in self.fields:
-            if len(field) != pred_length:
+            if len(getattr(self, field)) != pred_length:
                 msg = f"Field {field} has a different length to the prediction field."
                 raise ValueError(msg)
 

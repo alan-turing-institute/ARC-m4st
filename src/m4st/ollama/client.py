@@ -2,14 +2,12 @@ import json
 
 import requests  # type: ignore[import-untyped]
 
-model = "llama3.2"
 
-
-def generate(prompt, context):
+def generate(prompt, context, model_name="llama3.2"):
     r = requests.post(
         "http://localhost:11434/api/generate",
         json={
-            "model": model,
+            "model": model_name,
             "prompt": prompt,
             "context": context,
         },
