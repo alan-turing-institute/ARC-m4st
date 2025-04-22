@@ -1,11 +1,6 @@
-import json
-import os
-
-import numpy as np
 from comet import download_model, load_from_checkpoint
-from pandas import DataFrame
 
-from m4st.metrics import Metric
+from m4st.metrics import Metric, TranslationDataset
 
 
 class COMETScore(Metric):
@@ -18,37 +13,23 @@ class COMETScore(Metric):
 
     def __init__(self, model: str = "Unbabel/wmt22-comet-da", **predict_kwargs) -> None:
         self.comet = load_from_checkpoint(download_model(model))
-        self.model = model.replace("/", "_")  # for save paths
+        self.name = model.replace("/", "_")  # for save paths
         self.predict_kwargs = predict_kwargs  # passed to comet predict method
+        if self.comet.hparams.class_identifier == "regression_metric":
+            # older COMET models using the RegressionMetric class don't spescify
+            # input_segments in hparams
+            self.comet_req_inputs = ["src", "mt", "ref"]
+        else:
+            self.comet_req_inputs = self.comet.hparams.input_segments
+        field_mapping = {"src": "source", "mt": "prediction", "ref": "reference"}
+        self.data_req_inputs = [field_mapping[f] for f in self.comet_req_inputs]
+        # only preserve mapping for fields required by the model
+        self.field_mapping = dict(
+            zip(self.comet_req_inputs, self.data_req_inputs, strict=True)
+        )
 
-    def get_scores(
-        self, cat_data: DataFrame, output_path: str | os.PathLike, input_fp: str
-    ) -> None:
-        output_file = f"{self.model}_{input_fp}"
-        sentence_ids = np.array(cat_data["id"])
-        src_langs = list(cat_data["lang_tag"])
+    def get_scores(self, dataset: TranslationDataset) -> list[float]:
+        self.check_dataset_compatible(dataset)
 
-        fluent_data = [
-            {"src": row["src_sent"], "mt": row["mt_sent"], "ref": row["eng_sent"]}
-            for _, row in cat_data.iterrows()
-        ]
-        disfluent_data = [
-            {"src": row["src_sent"], "mt": row["pert_sent"], "ref": row["eng_sent"]}
-            for _, row in cat_data.iterrows()
-        ]
-
-        fluent_scores = self.comet.predict(fluent_data, **self.predict_kwargs)["scores"]
-        disfluent_scores = self.comet.predict(disfluent_data, **self.predict_kwargs)[
-            "scores"
-        ]
-
-        results = {}
-        for i in range(len(fluent_scores)):
-            results[int(sentence_ids[[i]])] = {
-                "source_language": src_langs[i],
-                "mt_score": fluent_scores[i],
-                "disfluent_score": disfluent_scores[i],
-            }
-
-        with open(os.path.join(output_path, output_file), "w+") as file_to_write:
-            json.dump(results, file_to_write)
+        comet_inputs = dataset.to_samples(self.field_mapping)
+        return self.comet.predict(comet_inputs, **self.predict_kwargs)["scores"]
