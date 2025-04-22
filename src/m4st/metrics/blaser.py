@@ -60,46 +60,81 @@ class BLASERScore(Metric):
         source_languages = np.array(dataset.source_language)
         target_languages = np.array(dataset.target_language)
 
-        unique_lang_pairs = {
-            (src, tgt)
-            for src, tgt in zip(source_languages, target_languages, strict=False)
-        }
+        unique_lang_pairs = sorted(
+            {
+                (src, tgt)
+                for src, tgt in zip(source_languages, target_languages, strict=False)
+            }
+        )  # unique language pairs sorted by source language then target language
 
         # Store results for all languages so they can be returned together
         results = np.full(len(dataset), np.nan, dtype=float)
 
-        # BLASER requires the source language, so at best we can batch by language as
-        # source_lang must be a string
+        # at best we can batch by language pair as the embedder predict methods require
+        # a single language to be specified for all inputs
         for src_lang, tgt_lang in tqdm(unique_lang_pairs):
             mask = (source_languages == src_lang) & (target_languages == tgt_lang)
             sources_lang = np.array(dataset.source)[mask]
             preds_lang = np.array(dataset.prediction)[mask]
+
+            # get unique sources to avoid re-embedding the same source multiple times.
+            # source_idx_lang gives the mapping from the original sources to the unique
+            # sources. The same strategy is used for the predictions and references.
+            # This can give a large speedup when duplicates are present, e.g. if many
+            # translation systems are being evaluated on the same sources.
+            unique_sources_lang, source_idx_lang = np.unique(
+                sources_lang, return_inverse=True
+            )
 
             # embed inputs
             embeds = {}
             if self.audio_source:
                 speech_embedder = self.get_speech_embedder(src_lang)
                 # load and resample audio
-                audio_sources = []
-                for src in sources_lang:
+                unique_audio_sources = []
+                for src in unique_sources_lang:
                     waveform, sr = torchaudio.load(src)
                     if sr != BLASER_SAMPLE_RATE:
                         waveform = resample(waveform, sr, BLASER_SAMPLE_RATE)
-                    audio_sources.append(waveform)
+                    unique_audio_sources.append(waveform)
 
-                embeds["src"] = speech_embedder.predict(audio_sources)
+                unique_speech_embeds = speech_embedder.predict(
+                    unique_audio_sources, progress_bar=True
+                )  # shape: (n_unique_sources, embed_dim)
+                embeds["src"] = unique_speech_embeds[
+                    source_idx_lang
+                ]  # shape: (n_sources, embed_dim)
             else:
-                embeds["src"] = self.text_embedder.predict(
-                    sources_lang, source_lang=src_lang
-                )
+                unique_text_embeds = self.text_embedder.predict(
+                    unique_sources_lang, source_lang=src_lang, progress_bar=True
+                )  # shape: (n_unique_sources, embed_dim)
 
-            embeds["mt"] = self.text_embedder.predict(preds_lang, source_lang=tgt_lang)
+                embeds["src"] = unique_text_embeds[
+                    source_idx_lang
+                ]  # shape: (n_sources, embed_dim)
+
+            unique_preds_lang, preds_idx_lang = np.unique(
+                preds_lang, return_inverse=True
+            )
+            unique_preds_embeds = self.text_embedder.predict(
+                unique_preds_lang, source_lang=tgt_lang, progress_bar=True
+            )  # shape: (n_unique_preds, embed_dim)
+            embeds["mt"] = unique_preds_embeds[
+                preds_idx_lang
+            ]  # shape: (n_preds, embed_dim)
 
             if not self.qe:
                 refs_lang = np.array(dataset.reference)[mask]
-                embeds["ref"] = self.text_embedder.predict(
-                    refs_lang, source_lang=tgt_lang
+                # get unique references to avoid re-embedding the same reference
+                unique_refs_lang, ref_idx_lang = np.unique(
+                    refs_lang, return_inverse=True
                 )
+                unique_refs_embeds = self.text_embedder.predict(
+                    unique_refs_lang, source_lang=tgt_lang, progress_bar=True
+                )  # shape: (n_unique_refs, embed_dim)
+                embeds["ref"] = unique_refs_embeds[
+                    ref_idx_lang
+                ]  # shape: (n_refs, embed_dim)
 
             # dict of lists to list of dicts
             inputs = [

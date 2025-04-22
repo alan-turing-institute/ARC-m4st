@@ -1,3 +1,4 @@
+exclude: "src/m4st/mt_metrics_eval"
 ci:
   autoupdate_commit_msg: "chore: update pre-commit hooks"
   autofix_commit_msg: "style: pre-commit fixes"
@@ -34,7 +35,6 @@ repos:
     hooks:
       - id: mypy
         files: src
-        args: []
         additional_dependencies:
           - pytest
           - types-PyYAML
