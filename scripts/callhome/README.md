@@ -1,5 +1,13 @@
 # CallHome
 
+
+
+## Dataset
+
+Go [https://ca.talkbank.org/access/CallHome](here), select the conversation language, create account, then you can download the "media folder". There you can find the .cha files, which contain the transcriptions. You will need to pre-process this data in combination with the Callhome translations dataset, which includes part of the pre-processing scripts. The README under ./scripts/callhome of this repo contains more information.
+
+To load the transcripts as an iterator, use the `m4st.callhome.pipeline.CallhomePipeline` class after pre-processing the data.
+
 ## Pre-processing
 
 Files:
