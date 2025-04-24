@@ -1,6 +1,6 @@
 # CallHome
 
-
+This experiment used the CallHome dataset (informal conversations in Spanish with Spanish transcripts, and English translations) to measure the correlation between different translation metrics on more conversational data from an audio source.
 
 ## Dataset
 

@@ -9,7 +9,8 @@ class TranslationDataset:
     Class to hold a translation dataset. Each field is a collection (list, tuple, etc.)
     of strings, plus an optional integer index field. The fields are:
     - prediction (required): the predicted (e.g. machine) translation
-    - source (optional): the source text
+    - source (optional): Either the source text or a path to a .wav audio file to use as
+        the source
     - reference (optional): the reference (e.g. human) translation
     - source_language (optional): the source language code
     - target_language (optional): the target language code
